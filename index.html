@@ -1,1 +1,176 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiniela Mundial 2026 PRO | V2.1</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&display=swap');
+        body { 
+            font-family: 'Poppins', sans-serif; 
+            background: #0f172a; 
+            color: #f8fafc;
+            background-image: radial-gradient(circle at 50% 0%, #1e293b 0%, #0f172a 100%);
+        }
+        .score-input:disabled { 
+            background-color: #1e293b; 
+            color: #64748b; 
+            cursor: not-allowed; 
+            border-color: #334155; 
+            opacity: 0.6;
+        }
+        .glass-card { 
+            background: rgba(30, 41, 59, 0.5); 
+            backdrop-filter: blur(12px); 
+            border: 1px solid rgba(255,255,255,0.08); 
+            transition: all 0.3s ease;
+        }
+        .glass-card:hover {
+            border-color: rgba(234, 179, 8, 0.4);
+            transform: translateY(-2px);
+        }
+        /* Estilo para los inputs de flechas (quitar flechas) */
+        input::-webkit-outer-spin-button,
+        input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    </style>
+</head>
+<body class="pb-20">
 
+    <nav class="sticky top-0 z-50 bg-slate-900/80 backdrop-blur-md border-b border-white/5 p-4 shadow-xl">
+        <div class="container mx-auto flex justify-between items-center">
+            <div>
+                <h1 class="text-2xl font-black italic tracking-tighter text-white">
+                    QUINIELA<span class="text-yellow-500">2026</span>
+                </h1>
+                <p id="reloj-cierre" class="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400"></p>
+            </div>
+            <div class="bg-slate-800 border border-white/10 px-5 py-2 rounded-2xl flex flex-col items-center">
+                <span class="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Mis Puntos</span>
+                <span id="puntos-usuario" class="text-2xl font-black text-green-400 leading-none">0</span>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container mx-auto px-4 mt-10 max-w-5xl">
+        <div class="grid lg:grid-cols-3 gap-10">
+            
+            <div class="lg:col-span-2">
+                <div class="flex justify-between items-center mb-8">
+                    <h2 class="text-2xl font-extrabold text-white uppercase tracking-tight">
+                        <i class="fas fa-futbol text-yellow-500 mr-2"></i>Tus Marcadores
+                    </h2>
+                    <button onclick="compartirWhatsApp()" class="bg-[#25D366] hover:bg-[#128C7E] text-white px-5 py-2 rounded-xl text-xs font-black uppercase transition-all flex items-center gap-2 shadow-lg shadow-green-900/20">
+                        <i class="fab fa-whatsapp text-lg"></i> Compartir
+                    </button>
+                </div>
+
+                <div id="contenedor-predicciones" class="space-y-4">
+                    </div>
+            </div>
+
+            <aside>
+                <div class="sticky top-28">
+                    <h2 class="text-xl font-bold mb-6 flex items-center gap-2 text-slate-300">
+                        <i class="fas fa-chart-line text-blue-500"></i> Resultados Oficiales
+                    </h2>
+                    <div id="tabla-reales" class="glass-card rounded-[2rem] p-6 shadow-2xl space-y-4">
+                        </div>
+                    
+                    <div class="mt-6 p-5 bg-blue-500/10 border border-blue-500/20 rounded-2xl">
+                        <h4 class="text-xs font-bold text-blue-400 uppercase mb-2">Reglas de Juego:</h4>
+                        <ul class="text-[11px] text-slate-400 space-y-1">
+                            <li>🎯 <strong>3 Puntos:</strong> Resultado exacto.</li>
+                            <li>⚖️ <strong>1 Punto:</strong> Acierto de ganador/empate.</li>
+                            <li>🔒 <strong>Bloqueo:</strong> Los campos se cierran en la fecha límite.</li>
+                        </ul>
+                    </div>
+                </div>
+            </aside>
+        </div>
+    </main>
+
+    <script>
+        /* ==========================================
+           CONFIGURACIÓN DEL ADMINISTRADOR (TÚ)
+           ========================================== 
+        */
+        
+        // 1. FECHA DE CIERRE (Cuando se bloquean los campos)
+        const FECHA_CIERRE_MAESTRA = "2026-06-11 12:00"; 
+
+        // 2. BASE DE DATOS DE PARTIDOS
+        // Pon los goles reales en realL y realV para que el sistema calcule puntos.
+        const partidos = [
+            { id: 1, local: "México 🇲🇽", visita: "🇩🇪 Alemania", realL: 2, realV: 1 },
+            { id: 2, local: "Argentina 🇦🇷", visita: "🇫🇷 Francia", realL: 3, realV: 3 },
+            { id: 3, local: "EE.UU 🇺🇸", visita: "🇧🇷 Brasil", realL: null, realV: null },
+            { id: 4, local: "España 🇪🇸", visita: "🇯🇵 Japón", realL: null, realV: null },
+            { id: 5, local: "Canadá 🇨🇦", visita: "🇮🇹 Italia", realL: null, realV: null }
+        ];
+
+        /* ==========================================
+           LÓGICA INTERNA (NO TOCAR SI NO ERES EXPERTO)
+           ========================================== 
+        */
+
+        let misVotos = JSON.parse(localStorage.getItem('quiniela_v2_data')) || {};
+
+        function verificarCierre() {
+            const limite = new Date(FECHA_CIERRE_MAESTRA);
+            const ahora = new Date();
+            const estaCerrado = ahora >= limite;
+            
+            const relojEl = document.getElementById('reloj-cierre');
+            if(estaCerrado) {
+                relojEl.innerHTML = `<span class="text-red-500"><i class="fas fa-lock mr-1"></i> MERCADO CERRADO</span>`;
+            } else {
+                relojEl.innerHTML = `<span class="text-blue-400 italic">Cierra: ${FECHA_CIERRE_MAESTRA}</span>`;
+            }
+            return estaCerrado;
+        }
+
+        function guardar(id, equipo, valor) {
+            if (!misVotos[id]) misVotos[id] = { l: 0, v: 0 };
+            misVotos[id][equipo] = parseInt(valor) || 0;
+            localStorage.setItem('quiniela_v2_data', JSON.stringify(misVotos));
+            calcularPuntos();
+            actualizarUI();
+        }
+
+        function calcularPuntos() {
+            let total = 0;
+            partidos.forEach(p => {
+                const v = misVotos[p.id];
+                if (v && p.realL !== null) {
+                    if (v.l === p.realL && v.v === p.realV) {
+                        total += 3; // Marcador exacto
+                    } else if (Math.sign(v.l - v.v) === Math.sign(p.realL - p.realV)) {
+                        total += 1; // Solo tendencia
+                    }
+                }
+            });
+            document.getElementById('puntos-usuario').innerText = total;
+        }
+
+        function compartirWhatsApp() {
+            let texto = `🏆 *MIS PREDICCIONES - QUINIELA 2026* 🏆\n\n`;
+            partidos.forEach(p => {
+                const v = misVotos[p.id] || { l: 0, v: 0 };
+                texto += `⚽ ${p.local}  *${v.l} - ${v.v}* ${p.visita}\n`;
+            });
+            const pts = document.getElementById('puntos-usuario').innerText;
+            texto += `\n🔥 Puntos hasta ahora: *${pts}*`;
+            
+            window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, '_blank');
+        }
+
+        function actualizarUI() {
+            const cerrado = verificarCierre();
+            const contenedor = document.getElementById('contenedor-predicciones');
+            const realesContainer = document.getElementById('tabla-reales');
+
+            // Renderizar Pronósticos
+            contenedor.innerHTML = partidos.map(p => {
+                const v = misVotos[p.id] || { l: '', v:
