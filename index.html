@@ -1,176 +1,345 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Quiniela Mundial 2026 PRO | V2.1</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&display=swap');
-        body { 
-            font-family: 'Poppins', sans-serif; 
-            background: #0f172a; 
-            color: #f8fafc;
-            background-image: radial-gradient(circle at 50% 0%, #1e293b 0%, #0f172a 100%);
-        }
-        .score-input:disabled { 
-            background-color: #1e293b; 
-            color: #64748b; 
-            cursor: not-allowed; 
-            border-color: #334155; 
-            opacity: 0.6;
-        }
-        .glass-card { 
-            background: rgba(30, 41, 59, 0.5); 
-            backdrop-filter: blur(12px); 
-            border: 1px solid rgba(255,255,255,0.08); 
-            transition: all 0.3s ease;
-        }
-        .glass-card:hover {
-            border-color: rgba(234, 179, 8, 0.4);
-            transform: translateY(-2px);
-        }
-        /* Estilo para los inputs de flechas (quitar flechas) */
-        input::-webkit-outer-spin-button,
-        input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-    </style>
-</head>
-<body class="pb-20">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quiniela PRO - Mundial 2026</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
 
-    <nav class="sticky top-0 z-50 bg-slate-900/80 backdrop-blur-md border-b border-white/5 p-4 shadow-xl">
-        <div class="container mx-auto flex justify-between items-center">
-            <div>
-                <h1 class="text-2xl font-black italic tracking-tighter text-white">
-                    QUINIELA<span class="text-yellow-500">2026</span>
-                </h1>
-                <p id="reloj-cierre" class="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400"></p>
-            </div>
-            <div class="bg-slate-800 border border-white/10 px-5 py-2 rounded-2xl flex flex-col items-center">
-                <span class="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Mis Puntos</span>
-                <span id="puntos-usuario" class="text-2xl font-black text-green-400 leading-none">0</span>
-            </div>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged }
+    from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+  import { getFirestore, doc, setDoc, getDoc, getDocs, updateDoc, deleteDoc, collection, serverTimestamp, onSnapshot, query, orderBy }
+    from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyAIYyrRMTQrSHRcW-BueDf1q7cTEF1bRjY",
+    authDomain: "quiniela2026-6ce90.firebaseapp.com",
+    projectId: "quiniela2026-6ce90",
+    storageBucket: "quiniela2026-6ce90.firebasestorage.app",
+    messagingSenderId: "644395936369",
+    appId: "1:644395936369:web:ce1070493b84d702b009d0"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+
+  const ADMINS = ["baisiquic20@hotmail.com", "gocr1995.2012@gmail.com"];
+  
+  let currentUser = null;
+  let userData = null;
+  let siteSettings = { bgImage: "", whatsappLink: "#", announcement: "" };
+
+  // --- Lógica de Inicialización ---
+  onAuthStateChanged(auth, async (user) => {
+    currentUser = user;
+    if (user) {
+      const userDoc = await getDoc(doc(db, "users", user.uid));
+      userData = userDoc.exists() ? userDoc.data() : null;
+      
+      await loadSettings();
+      
+      if (ADMINS.includes(user.email)) {
+        renderApp("admin");
+      } else if (userData && userData.verified) {
+        renderApp("inicio");
+      } else {
+        renderAccessCodeScreen();
+      }
+    } else {
+      renderAuth();
+    }
+  });
+
+  async function loadSettings() {
+    const snap = await getDoc(doc(db, "settings", "site"));
+    if (snap.exists()) siteSettings = snap.data();
+    applyGlobalStyles();
+  }
+
+  function applyGlobalStyles() {
+    if (siteSettings.bgImage) {
+      document.body.style.backgroundImage = `linear-gradient(rgba(10, 10, 26, 0.85), rgba(10, 10, 26, 0.85)), url(${siteSettings.bgImage})`;
+    }
+  }
+
+  // --- Componentes de UI ---
+
+  window.toast = (msg, type = "info") => {
+    const t = document.createElement("div");
+    t.className = `fixed bottom-5 right-5 px-6 py-3 rounded-xl text-white font-bold z-[100] animate-bounce shadow-2xl ${type === 'err' ? 'bg-red-500' : 'bg-green-500'}`;
+    t.textContent = msg;
+    document.body.appendChild(t);
+    setTimeout(() => t.remove(), 3000);
+  };
+
+  function renderAuth() {
+    document.getElementById("app").innerHTML = `
+      <div class="min-h-screen flex items-center justify-center p-6 animate-fade-in">
+        <div class="glass-card max-w-md w-full p-8 text-center">
+          <div class="text-6xl mb-4">🏆</div>
+          <h1 class="text-4xl font-extrabold mb-2 tracking-tight">QUINIELA<span class="text-gold">PRO</span></h1>
+          <p class="text-slate-400 mb-8">World Cup 2026 Edition</p>
+          
+          <div class="space-y-4">
+            <input type="email" id="auth-email" placeholder="Correo electrónico" class="pro-input">
+            <input type="password" id="auth-pass" placeholder="Contraseña" class="pro-input">
+            <button onclick="handleAuth('login')" class="btn-gold w-full py-4 rounded-2xl font-bold">ENTRAR</button>
+            <button onclick="handleAuth('reg')" class="text-slate-400 text-sm hover:text-white transition">¿No tienes cuenta? Regístrate aquí</button>
+          </div>
         </div>
-    </nav>
+      </div>
+    `;
+  }
 
-    <main class="container mx-auto px-4 mt-10 max-w-5xl">
-        <div class="grid lg:grid-cols-3 gap-10">
-            
-            <div class="lg:col-span-2">
-                <div class="flex justify-between items-center mb-8">
-                    <h2 class="text-2xl font-extrabold text-white uppercase tracking-tight">
-                        <i class="fas fa-futbol text-yellow-500 mr-2"></i>Tus Marcadores
-                    </h2>
-                    <button onclick="compartirWhatsApp()" class="bg-[#25D366] hover:bg-[#128C7E] text-white px-5 py-2 rounded-xl text-xs font-black uppercase transition-all flex items-center gap-2 shadow-lg shadow-green-900/20">
-                        <i class="fab fa-whatsapp text-lg"></i> Compartir
-                    </button>
-                </div>
+  window.handleAuth = async (mode) => {
+    const email = document.getElementById("auth-email").value;
+    const pass = document.getElementById("auth-pass").value;
+    try {
+      if (mode === 'login') await signInWithEmailAndPassword(auth, email, pass);
+      else {
+        const cred = await createUserWithEmailAndPassword(auth, email, pass);
+        await setDoc(doc(db, "users", cred.user.uid), {
+          email, verified: false, createdAt: serverTimestamp(), displayName: email.split('@')[0]
+        });
+      }
+    } catch (e) { toast("Error: " + e.message, "err"); }
+  };
 
-                <div id="contenedor-predicciones" class="space-y-4">
-                    </div>
-            </div>
-
-            <aside>
-                <div class="sticky top-28">
-                    <h2 class="text-xl font-bold mb-6 flex items-center gap-2 text-slate-300">
-                        <i class="fas fa-chart-line text-blue-500"></i> Resultados Oficiales
-                    </h2>
-                    <div id="tabla-reales" class="glass-card rounded-[2rem] p-6 shadow-2xl space-y-4">
-                        </div>
-                    
-                    <div class="mt-6 p-5 bg-blue-500/10 border border-blue-500/20 rounded-2xl">
-                        <h4 class="text-xs font-bold text-blue-400 uppercase mb-2">Reglas de Juego:</h4>
-                        <ul class="text-[11px] text-slate-400 space-y-1">
-                            <li>🎯 <strong>3 Puntos:</strong> Resultado exacto.</li>
-                            <li>⚖️ <strong>1 Punto:</strong> Acierto de ganador/empate.</li>
-                            <li>🔒 <strong>Bloqueo:</strong> Los campos se cierran en la fecha límite.</li>
-                        </ul>
-                    </div>
-                </div>
-            </aside>
+  function renderApp(section) {
+    document.getElementById("app").innerHTML = `
+      <nav class="fixed top-0 w-full glass-nav z-50 px-6 py-4 flex justify-between items-center">
+        <div class="font-black text-xl tracking-tighter">Q<span class="text-gold">PRO</span></div>
+        <div class="flex gap-6 items-center">
+          <button onclick="renderApp('inicio')" class="nav-link">🏠</button>
+          <button onclick="renderApp('pronos')" class="nav-link">⚽</button>
+          <button onclick="renderApp('tabla')" class="nav-link">📊</button>
+          <button onclick="signOut(auth)" class="text-red-400 text-sm">🚪</button>
         </div>
-    </main>
+      </nav>
+      <main id="content" class="pt-24 pb-12 px-6 max-w-4xl mx-auto animate-slide-up"></main>
+    `;
+    loadSection(section);
+  }
 
-    <script>
-        /* ==========================================
-           CONFIGURACIÓN DEL ADMINISTRADOR (TÚ)
-           ========================================== 
-        */
+  async function loadSection(name) {
+    const container = document.getElementById("content");
+    if (name === 'inicio') renderDashboard(container);
+    if (name === 'pronos') renderPronos(container);
+    if (name === 'tabla') renderLeaderboard(container);
+  }
+
+  async function renderDashboard(el) {
+    el.innerHTML = `
+      <div class="space-y-6">
+        <div class="glass-card p-8 bg-gradient-to-br from-gold/20 to-transparent border-gold/30">
+          <h2 class="text-3xl font-bold mb-2">¡Hola, ${userData?.displayName}!</h2>
+          <p class="text-slate-300">Bienvenido a la mejor experiencia mundialista.</p>
+        </div>
         
-        // 1. FECHA DE CIERRE (Cuando se bloquean los campos)
-        const FECHA_CIERRE_MAESTRA = "2026-06-11 12:00"; 
+        <div class="grid grid-cols-2 gap-4">
+          <div class="glass-card p-6 text-center">
+            <div class="text-xs text-slate-400 uppercase tracking-widest mb-1">Tu Posición</div>
+            <div class="text-3xl font-black text-gold">#--</div>
+          </div>
+          <div class="glass-card p-6 text-center">
+            <div class="text-xs text-slate-400 uppercase tracking-widest mb-1">Puntos Totales</div>
+            <div class="text-3xl font-black text-green-400">0</div>
+          </div>
+        </div>
 
-        // 2. BASE DE DATOS DE PARTIDOS
-        // Pon los goles reales en realL y realV para que el sistema calcule puntos.
-        const partidos = [
-            { id: 1, local: "México 🇲🇽", visita: "🇩🇪 Alemania", realL: 2, realV: 1 },
-            { id: 2, local: "Argentina 🇦🇷", visita: "🇫🇷 Francia", realL: 3, realV: 3 },
-            { id: 3, local: "EE.UU 🇺🇸", visita: "🇧🇷 Brasil", realL: null, realV: null },
-            { id: 4, local: "España 🇪🇸", visita: "🇯🇵 Japón", realL: null, realV: null },
-            { id: 5, local: "Canadá 🇨🇦", visita: "🇮🇹 Italia", realL: null, realV: null }
-        ];
+        <div class="glass-card p-6">
+          <h3 class="font-bold mb-4 flex items-center gap-2">📢 Comunicados</h3>
+          <div class="bg-white/5 p-4 rounded-xl text-sm italic border-l-4 border-gold">
+            ${siteSettings.announcement || "No hay anuncios nuevos por ahora."}
+          </div>
+        </div>
+      </div>
+    `;
+  }
 
-        /* ==========================================
-           LÓGICA INTERNA (NO TOCAR SI NO ERES EXPERTO)
-           ========================================== 
-        */
+  async function renderPronos(el) {
+    el.innerHTML = `<div class="text-center py-20"><div class="loading-spinner"></div></div>`;
+    
+    const [matchesSnap, predSnap] = await Promise.all([
+      getDocs(query(collection(db, "matches"), orderBy("date"))),
+      getDoc(doc(db, "predictions", currentUser.uid))
+    ]);
 
-        let misVotos = JSON.parse(localStorage.getItem('quiniela_v2_data')) || {};
+    const preds = predSnap.exists() ? predSnap.data() : {};
+    
+    let html = `<h2 class="text-2xl font-bold mb-8 text-center uppercase tracking-widest">Mis Pronósticos</h2><div class="space-y-4">`;
+    
+    matchesSnap.forEach(doc => {
+      const m = doc.data();
+      const p = preds[doc.id] || { home: "", away: "" };
+      const isLocked = m.locked;
 
-        function verificarCierre() {
-            const limite = new Date(FECHA_CIERRE_MAESTRA);
-            const ahora = new Date();
-            const estaCerrado = ahora >= limite;
-            
-            const relojEl = document.getElementById('reloj-cierre');
-            if(estaCerrado) {
-                relojEl.innerHTML = `<span class="text-red-500"><i class="fas fa-lock mr-1"></i> MERCADO CERRADO</span>`;
-            } else {
-                relojEl.innerHTML = `<span class="text-blue-400 italic">Cierra: ${FECHA_CIERRE_MAESTRA}</span>`;
-            }
-            return estaCerrado;
-        }
+      html += `
+        <div class="match-row glass-card p-5 flex items-center justify-between gap-4 transition-all ${isLocked ? 'opacity-60' : 'hover:border-gold/50'}">
+          <div class="flex-1 text-right font-bold text-sm sm:text-base">${m.home}</div>
+          <div class="flex items-center gap-2">
+            <input type="number" value="${p.home}" onchange="save('${doc.id}', 'home', this.value)" ${isLocked ? 'disabled' : ''} class="score-box">
+            <span class="text-slate-600 font-black">X</span>
+            <input type="number" value="${p.away}" onchange="save('${doc.id}', 'away', this.value)" ${isLocked ? 'disabled' : ''} class="score-box">
+          </div>
+          <div class="flex-1 text-left font-bold text-sm sm:text-base">${m.away}</div>
+        </div>
+      `;
+    });
+    el.innerHTML = html + `</div>`;
+  }
 
-        function guardar(id, equipo, valor) {
-            if (!misVotos[id]) misVotos[id] = { l: 0, v: 0 };
-            misVotos[id][equipo] = parseInt(valor) || 0;
-            localStorage.setItem('quiniela_v2_data', JSON.stringify(misVotos));
-            calcularPuntos();
-            actualizarUI();
-        }
+  window.save = async (id, side, val) => {
+    try {
+      await setDoc(doc(db, "predictions", currentUser.uid), {
+        [id]: { [side]: parseInt(val) }
+      }, { merge: true });
+      toast("Guardado");
+    } catch (e) { toast("Error al guardar", "err"); }
+  }
 
-        function calcularPuntos() {
-            let total = 0;
-            partidos.forEach(p => {
-                const v = misVotos[p.id];
-                if (v && p.realL !== null) {
-                    if (v.l === p.realL && v.v === p.realV) {
-                        total += 3; // Marcador exacto
-                    } else if (Math.sign(v.l - v.v) === Math.sign(p.realL - p.realV)) {
-                        total += 1; // Solo tendencia
-                    }
-                }
-            });
-            document.getElementById('puntos-usuario').innerText = total;
-        }
+  // Lógica de Códigos de Acceso
+  function renderAccessCodeScreen() {
+    document.getElementById("app").innerHTML = `
+      <div class="min-h-screen flex items-center justify-center p-6 animate-fade-in">
+        <div class="glass-card max-w-md w-full p-8 text-center">
+          <div class="text-5xl mb-6">🔒</div>
+          <h2 class="text-2xl font-bold mb-4">Acceso Restringido</h2>
+          <p class="text-slate-400 mb-8 text-sm">Para participar, ingresa el código que te proporcionó el administrador tras tu inscripción.</p>
+          <input type="text" id="access-code" placeholder="CÓDIGO DE 6 DÍGITOS" class="pro-input text-center tracking-[10px] uppercase font-black">
+          <button onclick="verifyCode()" class="btn-gold w-full py-4 mt-6 rounded-2xl font-bold">ACTIVAR CUENTA</button>
+          <button onclick="signOut(auth)" class="mt-4 text-xs text-slate-500 underline">Cerrar Sesión</button>
+        </div>
+      </div>
+    `;
+  }
 
-        function compartirWhatsApp() {
-            let texto = `🏆 *MIS PREDICCIONES - QUINIELA 2026* 🏆\n\n`;
-            partidos.forEach(p => {
-                const v = misVotos[p.id] || { l: 0, v: 0 };
-                texto += `⚽ ${p.local}  *${v.l} - ${v.v}* ${p.visita}\n`;
-            });
-            const pts = document.getElementById('puntos-usuario').innerText;
-            texto += `\n🔥 Puntos hasta ahora: *${pts}*`;
-            
-            window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, '_blank');
-        }
+  window.verifyCode = async () => {
+    const code = document.getElementById("access-code").value.toUpperCase().trim();
+    if(!code) return toast("Ingresa un código", "err");
+    
+    const snap = await getDoc(doc(db, "accessCodes", code));
+    if(snap.exists() && !snap.data().used) {
+      await updateDoc(doc(db, "accessCodes", code), { used: true, usedBy: currentUser.email });
+      await updateDoc(doc(db, "users", currentUser.uid), { verified: true });
+      toast("¡Cuenta Activada!");
+      setTimeout(() => location.reload(), 1000);
+    } else {
+      toast("Código inválido o usado", "err");
+    }
+  }
 
-        function actualizarUI() {
-            const cerrado = verificarCierre();
-            const contenedor = document.getElementById('contenedor-predicciones');
-            const realesContainer = document.getElementById('tabla-reales');
+</script>
 
-            // Renderizar Pronósticos
-            contenedor.innerHTML = partidos.map(p => {
-                const v = misVotos[p.id] || { l: '', v:
+<style>
+  :root {
+    --bg: #0a0a1a;
+    --gold: #fbbf24;
+    --glass: rgba(255, 255, 255, 0.03);
+    --border: rgba(255, 255, 255, 0.08);
+  }
+
+  body {
+    background-color: var(--bg);
+    color: #f8fafc;
+    font-family: 'Outfit', sans-serif;
+    background-size: cover;
+    background-attachment: fixed;
+    margin: 0;
+  }
+
+  .text-gold { color: var(--gold); }
+
+  .glass-card {
+    background: var(--glass);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.3);
+  }
+
+  .glass-nav {
+    background: rgba(10, 10, 26, 0.7);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .pro-input {
+    width: 100%;
+    background: rgba(0,0,0,0.3);
+    border: 1px solid var(--border);
+    padding: 1rem 1.5rem;
+    border-radius: 16px;
+    color: white;
+    outline: none;
+    transition: all 0.3s;
+  }
+
+  .pro-input:focus {
+    border-color: var(--gold);
+    background: rgba(0,0,0,0.5);
+  }
+
+  .btn-gold {
+    background: var(--gold);
+    color: #0a0a1a;
+    transition: all 0.3s ease;
+    box-shadow: 0 10px 20px rgba(251, 191, 36, 0.2);
+  }
+
+  .btn-gold:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 15px 30px rgba(251, 191, 36, 0.4);
+  }
+
+  .score-box {
+    width: 50px;
+    height: 50px;
+    background: rgba(251, 191, 36, 0.1);
+    border: 1px solid rgba(251, 191, 36, 0.3);
+    border-radius: 12px;
+    text-align: center;
+    font-weight: 800;
+    font-size: 1.2rem;
+    color: var(--gold);
+    outline: none;
+  }
+
+  .score-box:focus { border-color: var(--gold); background: rgba(251, 191, 36, 0.2); }
+
+  /* Animaciones */
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .animate-slide-up { animation: slideUp 0.6s ease-out; }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  .animate-fade-in { animation: fadeIn 0.8s ease-in; }
+
+  .loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid var(--border);
+    border-top-color: var(--gold);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Ocultar flechas de input number */
+  input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+</style>
+</head>
+<body>
+  <div id="app"></div>
+</body>
+</html>
