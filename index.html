@@ -957,31 +957,33 @@ allMatches = matchSnap.docs.map(d=>({...d.data()}));
 console.log("MATCHES CARGADOS:", allMatches);
 
 // 🔥 GENERAR 16AVOS AUTOMÁTICO
+console.log("ANTES DE AUTO R32");
+
 try {
-  console.log("ANTES DE AUTO R32");
+  // GENERAR PARTIDOS SIEMPRE
+  await autoGenerateR32();
+} catch(e) {
+  console.error("ERROR AUTO R32:", e);
+}
 
-  if(isAdmin || isAdmin2){
-    try {
-      await autoGenerateR32();
-    } catch(e){
-      console.error("ERROR AUTO R32:", e);
-    }
-  }
+console.log("DESPUÉS DE MATCHES");
 
-  console.log("DESPUÉS DE MATCHES");
-
+try {
+  // OBTENER PREDICCIONES DEL USUARIO
   const predSnap = await getDoc(doc(db,"predictions",currentUser.uid));
-
-  console.log("DESPUÉS DE PREDICTIONS");
-
   const myPreds = predSnap.exists() ? predSnap.data().preds || {} : {};
 
   console.log("ANTES DE RENDER");
 
-  renderPhaseSelector(main,myPreds);
+  renderPhaseSelector(main, myPreds);
+
+  // BLOQUEAR PRONÓSTICOS SOLO PARA ADMINS
+  if(isAdmin || isAdmin2){
+    disableUserPredictions(); // función que bloquea inputs de pronósticos
+  }
 
 } catch(err) {
-  console.error("Error general:", err);
+  console.error("Error obteniendo predicciones:", err);
 }
 
 function renderPhaseSelector(main,myPreds){
