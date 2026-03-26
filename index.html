@@ -949,13 +949,22 @@ async function renderPronos(main){
 function renderPhaseSelector(main,myPreds){
   const phases=[
     {key:"groups",label:"Fase de Grupos",icon:"⚽",matches:allMatches.filter(m=>m.phase==="groups")},
+    {key:"r32",label:"Dieciseisavos de Final",icon:"🥊",matches:allMatches.filter(m=>m.phase==="r32")},
     {key:"r16",label:"Octavos de Final",icon:"🔥",matches:allMatches.filter(m=>m.phase==="r16")},
     {key:"qf",label:"Cuartos de Final",icon:"⚡",matches:allMatches.filter(m=>m.phase==="qf")},
     {key:"sf",label:"Semifinales",icon:"🏟️",matches:allMatches.filter(m=>m.phase==="sf")},
     {key:"tf",label:"Tercer Lugar",icon:"🥉",matches:allMatches.filter(m=>m.phase==="tf")},
     {key:"final",label:"Final",icon:"🏆",matches:allMatches.filter(m=>m.phase==="final")},
   ];
-  const unlocked=siteSettings.phases||{groups:true};
+  const unlocked = siteSettings.phases || {
+  groups: true,
+  r32: false,
+  r16: false,
+  qf: false,
+  sf: false,
+  tf: false,
+  final: false
+};
 
   let cards=phases.map(ph=>{
     const open=unlocked[ph.key];
