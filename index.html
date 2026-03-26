@@ -1900,6 +1900,117 @@ window.printResultados=async()=>{
   }
 
 });
+  //-------------funsion auto-16avos-----------------
+  function getTopTeamsByGroup(matches){
+  const table = {};
+
+  matches.forEach(m=>{
+    if(!m.official) return;
+
+    const {home, away} = m;
+    const h = m.official.home;
+    const a = m.official.away;
+
+    if(!table[home]) table[home]={pts:0,gd:0};
+    if(!table[away]) table[away]={pts:0,gd:0};
+
+    table[home].gd += (h-a);
+    table[away].gd += (a-h);
+
+    if(h>a) table[home].pts+=3;
+    else if(a>h) table[away].pts+=3;
+    else {
+      table[home].pts+=1;
+      table[away].pts+=1;
+    }
+  });
+
+  return table;
+}
+  function getQualifiedTeams(allMatches){
+  const groups = {};
+
+  allMatches
+    .filter(m=>m.phase==="groups")
+    .forEach(m=>{
+      if(!groups[m.group]) groups[m.group]=[];
+      groups[m.group].push(m);
+    });
+
+  const result = {};
+
+  Object.keys(groups).forEach(g=>{
+    const table = getTopTeamsByGroup(groups[g]);
+
+    const sorted = Object.entries(table)
+      .sort((a,b)=> b[1].pts - a[1].pts || b[1].gd - a[1].gd);
+
+    result[g] = {
+      first: sorted[0][0],
+      second: sorted[1][0]
+    };
+  });
+
+  return result;
+}
+  function generateR32Matches(qualified){
+  return [
+    {home: qualified.A.first, away: qualified.B.second},
+    {home: qualified.B.first, away: qualified.A.second},
+    {home: qualified.C.first, away: qualified.D.second},
+    {home: qualified.D.first, away: qualified.C.second},
+    // sigue según tus grupos
+  ];
+}
+  async function fillR32(){
+  const qualified = getQualifiedTeams(allMatches);
+  const matches = generateR32Matches(qualified);
+
+  for(let i=0;i<matches.length;i++){
+    await updateDoc(doc(db,"matches",`r32_${i+1}`),{
+      home: matches[i].home,
+      away: matches[i].away,
+      locked: false
+    });
+  }
+
+  alert("16avos generados automáticamente 🚀");
+}
+  //--------------------------------------------
+  async function autoGenerateR32(){
+  const groupMatches = allMatches.filter(m=>m.phase==="groups");
+
+  // 🔴 Verificar que TODOS tengan resultado
+  const allPlayed = groupMatches.every(m => m.official);
+
+  if(!allPlayed){
+    console.log("Aún no terminan los grupos");
+    return;
+  }
+
+  // 🧠 Verificar si ya se generaron
+  const existingR32 = allMatches.filter(m=>m.phase==="r32");
+  const alreadyFilled = existingR32.some(m => m.home !== "TBD");
+
+  if(alreadyFilled){
+    console.log("R32 ya generado");
+    return;
+  }
+
+  // 🚀 Generar equipos
+  const qualified = getQualifiedTeams(allMatches);
+  const matches = generateR32Matches(qualified);
+
+  for(let i=0;i<matches.length;i++){
+    await updateDoc(doc(db,"matches",`r32_${i+1}`),{
+      home: matches[i].home,
+      away: matches[i].away,
+      locked: false
+    });
+  }
+
+  console.log("🔥 16avos generados automáticamente");
+}
 
 </script>
 
