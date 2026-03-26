@@ -73,7 +73,58 @@ button:active {
     .btn-main:active {
       transform: scale(0.97);
     }
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
 
+.page-title {
+  font-size: 20px;
+  font-weight: bold;
+}
+
+.phases-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.phase-card {
+  display: flex;
+  align-items: center;
+  background: white;
+  border-radius: 14px;
+  padding: 14px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+}
+
+.phase-icon {
+  font-size: 24px;
+  margin-right: 12px;
+}
+
+.phase-info {
+  flex: 1;
+}
+
+.phase-label {
+  font-weight: bold;
+}
+
+.phase-progress {
+  font-size: 13px;
+  color: gray;
+}
+
+.phase-arrow {
+  font-size: 20px;
+  color: #999;
+}
+.phase-card:active{
+  transform: scale(0.97);
+}
 </style>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>Quiniela Mundial 2026</title>
@@ -851,14 +902,23 @@ function renderPhaseSelector(main,myPreds){
     </div>`;
   }).join("");
 
-  main.innerHTML=`<div class="page-wrap">
+  main.innerHTML=`
+<div class="container">
+
+  <div class="page-wrap">
+
     <div class="page-header">
       <h2 class="page-title">⚽ Mis Pronósticos</h2>
       <button class="btn-icon" onclick="abrirEnNavegador()" title="Guardar PDF">💾</button>
     </div>
-    <div class="phases-list">${cards}</div>
-  </div>`;
-}
+
+    <div class="phases-list">
+      ${cards}
+    </div>
+
+  </div>
+
+</div>`;
 
 window.renderPhaseMatches=async(phaseKey,phaseLabel)=>{
   const main=document.getElementById("main");
