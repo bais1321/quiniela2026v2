@@ -1620,17 +1620,26 @@ window.printResultados=async()=>{
   savePDF(pdf,`resultados_quiniela2026.pdf`);
 };
 
-document.addEventListener('DOMContentLoaded', () => {
-  if (window.Capacitor && window.Capacitor.Plugins.App) {
-    window.Capacitor.Plugins.App.addListener('backButton', () => {
-      if (window.history.length > 1) {
-        window.history.back();
-      } else {
-        window.Capacitor.Plugins.App.exitApp();
-      }
-    });
-  }
-});
+  window.abrirEnNavegador = function () {
+    window.open("https://bais1321.github.io/quiniela2026v2/", "_blank");
+  };
+
+  // AQUÍ pegas esto boton atras
+  document.addEventListener("DOMContentLoaded", () => {
+    if (window.Capacitor && window.Capacitor.Plugins.App) {
+
+      window.Capacitor.Plugins.App.addListener("backButton", () => {
+
+        if (window.history.length > 1) {
+          window.history.back();
+        } else {
+          window.Capacitor.Plugins.App.exitApp();
+        }
+
+      });
+
+    }
+  });
 
 </script>
 
