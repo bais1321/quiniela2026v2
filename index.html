@@ -965,8 +965,9 @@ function renderPhaseSelector(main,myPreds){
   tf: false,
   final: false
 };
-
+console.log("FASES:", phases);
   let cards=phases.map(ph=>{
+    console.log("PH:", ph.key);
     const open=unlocked[ph.key];
     const saved=ph.matches.filter(m=>myPreds[m.id]!==undefined).length;
     const total=ph.matches.length;
