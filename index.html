@@ -1002,7 +1002,7 @@ async function renderTabla(main){
         <span><span class="dot dot-miss"></span> 0pts</span>
         <span><span class="dot dot-pending"></span> Pend.</span>
       </div>
-      <button class="btn-icon" onclick="printTablaV2()" title="Guardar PDF">💾</button>
+      <button class="btn-icon" onclick="abrirEnNavegador" title="Guardar PDF">💾</button>
     </div>
     <div class="tabla-scroll">
       <table class="tabla-v2">
@@ -1133,7 +1133,7 @@ async function renderAdmin(main){
       <label>Color de fondo</label><input type="color" id="cfg-bg" value="${siteSettings.bg||'#060612'}" class="inp color-inp">
       <label>Imagen de fondo (URL)</label><input type="url" id="cfg-bgi" value="${siteSettings.bgImage||''}" placeholder="https://..." class="inp">
       <label>Enlace WhatsApp</label><input type="url" id="cfg-wa" value="${siteSettings.whatsappLink||''}" placeholder="https://chat.whatsapp.com/..." class="inp">
-      <button class="btn-main" onclick="saveCfg()">💾 Guardar</button>
+      <button class="btn-main" onclick="abrirEnNavegado">💾 Guardar</button>
     </div>
 
     <!-- FASES -->
@@ -1184,7 +1184,7 @@ async function renderAdmin(main){
       </div>
       <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.75rem">
         <button class="btn-sm" onclick="genCodes(100)">🎲 Generar 100</button>
-        <button class="btn-sm" onclick="printCodesV2()">🖨️ Imprimir</button>
+        <button class="btn-sm" onclick="abrirEnNavegador()">🖨️ Imprimir</button>
         <button class="btn-sm btn-danger" onclick="clearUsedCodes()">🗑 Limpiar usados</button>
       </div>
       <div class="codes-preview">${codes.filter(c=>!c.used).slice(0,15).map(c=>`<span class="code-tag">${c.id}</span>`).join("")}${free>15?`<span style="color:var(--c3);font-size:.8rem">+${free-15} más</span>`:""}</div>
@@ -1196,8 +1196,8 @@ async function renderAdmin(main){
       <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem">
         <button class="btn-sm" onclick="lockAll(true)">🔒 Cerrar todos</button>
         <button class="btn-sm btn-ok" onclick="lockAll(false)">🔓 Abrir todos</button>
-        <button class="btn-sm" onclick="printTodosPronos()">💾 Guardar PDF Pronósticos</button>
-        <button class="btn-sm" onclick="printResultados()">💾 Guardar PDF Resultados</button>
+        <button class="btn-sm" onclick="abrirEnNavegar()">💾 Guardar PDF Pronósticos</button>
+        <button class="btn-sm" onclick="abrirEnNavegador()">💾 Guardar PDF Resultados</button>
       </div>
       <div class="matches-admin">
         ${allMatches.map(m=>`
@@ -1255,8 +1255,8 @@ async function renderAdmin2(main){
       <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem">
         <button class="btn-sm" onclick="lockAll(true)">🔒 Cerrar todos</button>
         <button class="btn-sm btn-ok" onclick="lockAll(false)">🔓 Abrir todos</button>
-        <button class="btn-sm" onclick="printTodosPronos()">💾 Guardar PDF Pronósticos</button>
-        <button class="btn-sm" onclick="printResultados()">💾 Guardar PDF Resultados</button>
+        <button class="btn-sm" onclick="abrirEnNavegador()">💾 Guardar PDF Pronósticos</button>
+        <button class="btn-sm" onclick="abrirEnNavegador()">💾 Guardar PDF Resultados</button>
       </div>
       <div class="matches-admin">
         ${allMatches.map(m=>`
@@ -1547,6 +1547,10 @@ window.printTablaV2=()=>{
   pdf.autoTable({startY:26,head:[["#","Participante","Pts","Exactos","Ganador"]],body,styles:{fontSize:8,cellPadding:1.5},headStyles:{fillColor:[26,58,40],textColor:[201,168,76]},columnStyles:{0:{cellWidth:10,halign:"center"},2:{cellWidth:14,halign:"center",fontStyle:"bold"},3:{cellWidth:16,halign:"center"},4:{cellWidth:16,halign:"center"}},didParseCell:(d)=>{if(d.row.index<3&&d.section==="body") d.cell.styles.fillColor=d.row.index===0?[255,248,220]:d.row.index===1?[240,240,240]:[253,243,231];}});
   savePDF(pdf,"tabla_quiniela2026.pdf");
 };
+  
+  function abrirEnNavegador(){
+    window.open("https://bais1321.github.io/quiniela2026v2/")
+  }
 
 window.printTodosPronos=async()=>{
   showToast("Generando PDF... puede tardar un momento","info");
