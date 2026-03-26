@@ -714,7 +714,7 @@ async function renderInicio(main){
 window.saveAnn=async()=>{
   siteSettings.announcement=document.getElementById("ann-inp").value.trim();
   await setDoc(doc(db,"settings","site"),siteSettings);
-  applyBg(); showToast("✅ Anuncio guardado","success"); goTo("inicio");
+  applyBg(); notificar("✅ Anuncio guardado","success"); goTo("inicio");
 };
 window.addPhotoHome=async()=>{
   const url=document.getElementById("ph-url").value.trim();
@@ -948,7 +948,7 @@ window.saveGroup=async(g)=>{
   if(!saved){showToast("⚠️ Ingresa los marcadores primero","warning");return;}
   await setDoc(ref,{uid:currentUser.uid,preds:existing},{merge:true});
   window._myPreds=existing;
-  showToast(`✅ Grupo ${g} guardado (${saved} partidos)`,"success");
+  notificar(`✅ Grupo ${g} guardado (${saved} partidos)`,"success");
   buildGroupView(document.getElementById("main"),g,existing);
 };
 
@@ -967,7 +967,7 @@ window.savePhase=async(phaseKey)=>{
   if(!saved){showToast("⚠️ Ingresa los marcadores primero","warning");return;}
   await setDoc(ref,{uid:currentUser.uid,preds:existing},{merge:true});
   window._myPreds=existing;
-  showToast(`✅ ${saved} pronósticos guardados`,"success");
+  notificar(`✅ ${saved} pronósticos guardados`,"success");
   renderPhaseSelector(document.getElementById("main"),existing);
 };
 
@@ -1333,7 +1333,7 @@ window.saveCfg=async()=>{
     whatsappLink:document.getElementById("cfg-wa").value.trim()
   };
   await setDoc(doc(db,"settings","site"),siteSettings);
-  applyBg(); showToast("✅ Configuración guardada","success");
+  applyBg(); notificar("✅ Configuración guardada","success");
   const wa=document.getElementById("wa-link"); if(wa) wa.href=siteSettings.whatsappLink||"#";
 };
 
@@ -1341,7 +1341,7 @@ window.togglePhase=async(key,state)=>{
   if(!siteSettings.phases) siteSettings.phases={groups:true,r16:false,qf:false,sf:false,tf:false,final:false};
   siteSettings.phases[key]=state;
   await setDoc(doc(db,"settings","site"),siteSettings);
-  showToast(`${state?'🔓 Fase abierta':'🔒 Fase cerrada'}`,"success");
+  notificar(`${state?'🔓 Fase abierta':'🔒 Fase cerrada'}`,"success");
   goTo("admin");
 };
 
@@ -1350,7 +1350,7 @@ window.saveElimTeams=async(id)=>{
   const away=document.getElementById(`elim_a_${id}`)?.value.trim();
   if(!home||!away){showToast("Ingresa ambos equipos","error");return;}
   await updateDoc(doc(db,"matches",id),{home,away});
-  showToast("✅ Equipos guardados","success");
+  notificar("✅ Equipos guardados","success");
 };
 
 window.genCodes=async(qty)=>{
@@ -1362,7 +1362,7 @@ window.genCodes=async(qty)=>{
     const s=await getDoc(doc(db,"accessCodes",c));
     if(!s.exists()){await setDoc(doc(db,"accessCodes",c),{used:false,createdAt:serverTimestamp()});n++;}
   }
-  showToast(`✅ ${n} códigos generados`,"success"); goTo("admin");
+  notificar(`✅ ${n} códigos generados`,"success"); goTo("admin");
 };
 
 window.printCodesV2=async()=>{
@@ -1387,7 +1387,7 @@ window.clearUsedCodes=async()=>{
   const snap=await getDocs(collection(db,"accessCodes"));
   let n=0;
   for(const d of snap.docs){if(d.data().used){await deleteDoc(doc(db,"accessCodes",d.id));n++;}}
-  showToast(`✅ ${n} códigos eliminados`,"success"); goTo("admin");
+  notificar(`✅ ${n} códigos eliminados`,"success"); goTo("admin");
 };
 
 window.lockAll=async(state)=>{
@@ -1413,7 +1413,7 @@ window.setOff2=async(id)=>{
 };
 window.resetOff=async(id)=>{
   await updateDoc(doc(db,"matches",id),{official:null});
-  showToast("✅ Marcador eliminado","success"); goTo("admin");
+  notificar("✅ Marcador eliminado","success"); goTo("admin");
 };
 window.toggleLockMatch=async(id,state)=>{
   await updateDoc(doc(db,"matches",id),{locked:state});
@@ -1426,7 +1426,7 @@ window.togglePaid=async(uid,state)=>{
 window.clearPreds=async(uid,name)=>{
   if(!confirm(`¿Borrar pronósticos de "${name}"? Podrá volver a ingresarlos.`)) return;
   await deleteDoc(doc(db,"predictions",uid));
-  showToast(`✅ Pronósticos de ${name} eliminados`,"success"); goTo("admin");
+  notificar(`✅ Pronósticos de ${name} eliminados`,"success"); goTo("admin");
 };
 window.delUser=async(uid,name)=>{
   if(!confirm(`¿Eliminar a "${name}"?`)) return;
@@ -1505,7 +1505,7 @@ window.saveEditPreds=async(uid)=>{
     if(!isNaN(h)&&!isNaN(a)) newP[m.id]={home:h,away:a};
   });
   await setDoc(doc(db,"predictions",uid),{uid,preds:newP});
-  showToast("✅ Pronósticos actualizados","success"); goTo("admin");
+  notificar("✅ Pronósticos actualizados","success"); goTo("admin");
 };
 window.addPhoto2=async()=>{
   const url=document.getElementById("ph2-url").value.trim();
@@ -1533,11 +1533,11 @@ function pdfHeader(doc,title,sub=""){
 }
 function savePDF(doc,name){
   doc.save(name);
-  showToast("✅ PDF guardado","success");
+  nitificar("✅ PDF guardado","success");
 }
 
 window.printMisPronos=async()=>{
-  showToast("Generando PDF...","info");
+  notificar("Generando PDF...","info");
   const uSnap=await getDoc(doc(db,"users",currentUser.uid));
   const name=(uSnap.exists()?uSnap.data().displayName:"")||currentUser.email;
   const preds=window._myPreds||{};
@@ -1564,7 +1564,7 @@ window.printMisPronos=async()=>{
 };
 
 window.printTablaV2=()=>{
-  showToast("Generando PDF...","info");
+  notificar("Generando PDF...","info");
   const lb=window._lb||[];
   const matches=window._sortedM||allMatches;
   const pdf=getPDF(true);
@@ -1585,7 +1585,7 @@ window.abrirEnNavegador = async function () {
 };
 
 window.printTodosPronos=async()=>{
-  showToast("Generando PDF... puede tardar un momento","info");
+  notificar("Generando PDF... puede tardar un momento","info");
   const matchSnap=await getDocs(collection(db,"matches"));
   const matches=matchSnap.docs.map(d=>d.data()).sort((a,b)=>a.date.localeCompare(b.date));
   const predsSnap=await getDocs(collection(db,"predictions"));
@@ -1619,7 +1619,7 @@ window.printTodosPronos=async()=>{
 };
 
 window.printResultados=async()=>{
-  showToast("Generando PDF...","info");
+  notificar("Generando PDF...","info");
   const matchSnap=await getDocs(collection(db,"matches"));
   const matches=matchSnap.docs.map(d=>d.data()).sort((a,b)=>a.date.localeCompare(b.date)||a.time.localeCompare(b.time));
   const predsSnap=await getDocs(collection(db,"predictions"));
