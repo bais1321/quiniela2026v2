@@ -960,26 +960,15 @@ console.log("MATCHES CARGADOS:", allMatches);
 try {
   console.log("ANTES DE AUTO R32");
 
- if(isAdmin || isAdmin2){
-  try {
-    await autoGenerateR32();
-  } catch(e){
-    console.error("ERROR AUTO R32:", e);
+  if(isAdmin || isAdmin2){
+    try {
+      await autoGenerateR32();
+    } catch(e){
+      console.error("ERROR AUTO R32:", e);
+    }
   }
 }
-}
 console.log("DESPUÉS DE MATCHES");
-
-const predSnap = await getDoc(doc(db,"predictions",currentUser.uid));
-
-console.log("DESPUÉS DE PREDICTIONS");
-
-const myPreds = predSnap.exists() ? predSnap.data().preds || {} : {};
-
-console.log("ANTES DE RENDER");
-
-renderPhaseSelector(main,myPreds);
-}
 
 function renderPhaseSelector(main,myPreds){
   const phases=[
