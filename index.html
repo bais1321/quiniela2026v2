@@ -963,7 +963,6 @@ try {
   await autoGenerateR32();
 
   console.log("DESPUÉS DE AUTO R32");
-
 } catch(e){
   console.error("ERROR AUTO R32:", e);
 }
@@ -979,6 +978,7 @@ const myPreds = predSnap.exists() ? predSnap.data().preds || {} : {};
 console.log("ANTES DE RENDER");
 
 renderPhaseSelector(main,myPreds);
+}
 
 function renderPhaseSelector(main,myPreds){
   const phases=[
