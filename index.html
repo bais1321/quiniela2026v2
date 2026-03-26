@@ -860,19 +860,32 @@ window.removePhotoHome=async(i)=>{
 //  PRONÓSTICOS
 // ─────────────────────────────────────────────────────────────────
 async function renderPronos(main){
-  if(isAdmin||isAdmin2){
+  console.log("ENTRÓ A PRONOS");
+
+  if(isAdmin || isAdmin2){
     main.innerHTML=`<div class="page-wrap"><div class="card center-card">
       <div style="font-size:3rem">🚫</div>
       <h3>Los administradores no pueden llenar pronósticos</h3>
-    </div></div>`; return;
+    </div></div>`;
+    return;
   }
+
   main.innerHTML=`<div class="page-wrap"><div class="loading-spin"></div></div>`;
-  const matchSnap=await getDocs(collection(db,"matches"));
-  allMatches=matchSnap.docs.map(d=>({...d.data()})).sort((a,b)=>a.date.localeCompare(b.date)||a.time.localeCompare(b.time));
-  const predSnap=await getDoc(doc(db,"predictions",currentUser.uid));
-  const myPreds=predSnap.exists()?predSnap.data().preds||{}:{};
-  window._myPreds=myPreds;
-  window._allMatchesPrint=allMatches;
+
+  console.log("ANTES DE FIREBASE");
+
+  const matchSnap = await getDocs(collection(db,"matches"));
+
+  console.log("DESPUÉS DE MATCHES");
+
+  const predSnap = await getDoc(doc(db,"predictions",currentUser.uid));
+
+  console.log("DESPUÉS DE PREDICTIONS");
+
+  const myPreds = predSnap.exists() ? predSnap.data().preds || {} : {};
+
+  console.log("ANTES DE RENDER");
+
   renderPhaseSelector(main,myPreds);
 }
 
