@@ -1547,10 +1547,9 @@ window.printTablaV2=()=>{
   pdf.autoTable({startY:26,head:[["#","Participante","Pts","Exactos","Ganador"]],body,styles:{fontSize:8,cellPadding:1.5},headStyles:{fillColor:[26,58,40],textColor:[201,168,76]},columnStyles:{0:{cellWidth:10,halign:"center"},2:{cellWidth:14,halign:"center",fontStyle:"bold"},3:{cellWidth:16,halign:"center"},4:{cellWidth:16,halign:"center"}},didParseCell:(d)=>{if(d.row.index<3&&d.section==="body") d.cell.styles.fillColor=d.row.index===0?[255,248,220]:d.row.index===1?[240,240,240]:[253,243,231];}});
   savePDF(pdf,"tabla_quiniela2026.pdf");
 };
-  
-  function abrirEnNavegador(){
-    alert("funciona")
-  }
+window.abrirEnNavegador = function () {
+  window.open("https://bais1321.github.io/quiniela2026v2/", "_blank");
+};  
 
 window.printTodosPronos=async()=>{
   showToast("Generando PDF... puede tardar un momento","info");
