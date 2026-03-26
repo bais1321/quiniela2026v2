@@ -960,11 +960,12 @@ console.log("MATCHES CARGADOS:", allMatches);
 try {
   console.log("ANTES DE AUTO R32");
 
-  await autoGenerateR32();
-
-  console.log("DESPUÉS DE AUTO R32");
-} catch(e){
-  console.error("ERROR AUTO R32:", e);
+ if(isAdmin || isAdmin2){
+  try {
+    await autoGenerateR32();
+  } catch(e){
+    console.error("ERROR AUTO R32:", e);
+  }
 }
 
 console.log("DESPUÉS DE MATCHES");
