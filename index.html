@@ -1614,6 +1614,17 @@ window.printResultados=async()=>{
   pdf.autoTable({startY:26,head:[["#","Participante","Pts","3pts","1pt","0pts"]],body,styles:{fontSize:8,cellPadding:1.5},headStyles:{fillColor:[26,58,40],textColor:[201,168,76]},columnStyles:{0:{cellWidth:10,halign:"center"},2:{cellWidth:14,halign:"center",fontStyle:"bold"},3:{cellWidth:14,halign:"center"},4:{cellWidth:14,halign:"center"},5:{cellWidth:14,halign:"center"}},didParseCell:(d)=>{if(d.row.index<3&&d.section==="body") d.cell.styles.fillColor=d.row.index===0?[255,248,220]:d.row.index===1?[240,240,240]:[253,243,231];}});
   savePDF(pdf,`resultados_quiniela2026.pdf`);
 };
+  document.addEventListener("deviceready", function () {
+  document.addEventListener("backbutton", function (event) {
+    event.preventDefault();
+
+    if (window.history.length > 1) {
+      window.history.back();
+    } else {
+      navigator.app.exitApp();
+    }
+  }, false);
+});
 
 </script>
 
