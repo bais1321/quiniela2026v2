@@ -191,6 +191,7 @@ button:active {
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 
 <script type="module">
+  console.log("SCRIPT CARGADO");
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
@@ -1410,13 +1411,14 @@ async function renderAdmin(main){
       <p style="color:var(--c3);font-size:.85rem;margin-bottom:1rem">Desbloquea cada fase cuando sea el momento de que los usuarios ingresen sus pronósticos.</p>
       <div class="phases-admin">
         ${[
-          {key:"groups",label:"Fase de Grupos"},
-          {key:"r16",label:"Octavos de Final"},
-          {key:"qf",label:"Cuartos de Final"},
-          {key:"sf",label:"Semifinales"},
-          {key:"tf",label:"Tercer Lugar"},
-          {key:"final",label:"Final"}
-        ].map(ph=>`
+  {key:"groups",label:"Fase de Grupos"},
+  {key:"r32",label:"Dieciseisavos de Final"}, // 🔥 NUEVO
+  {key:"r16",label:"Octavos de Final"},
+  {key:"qf",label:"Cuartos de Final"},
+  {key:"sf",label:"Semifinales"},
+  {key:"tf",label:"Tercer Lugar"},
+  {key:"final",label:"Final"}
+].map(ph=>`
           <div class="phase-admin-row">
             <span>${ph.label}</span>
             <button onclick="togglePhase('${ph.key}',${!phases[ph.key]})" class="btn-phase ${phases[ph.key]?'phase-open':'phase-closed'}">
