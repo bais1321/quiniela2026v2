@@ -970,17 +970,14 @@ console.log("DESPUÉS DE MATCHES");
 
 try {
   // OBTENER PREDICCIONES DEL USUARIO
-  const predSnap = await getDoc(doc(db,"predictions",currentUser.uid));
+  const predSnap = await getDoc(doc(db, "predictions", currentUser.uid));
   const myPreds = predSnap.exists() ? predSnap.data().preds || {} : {};
 
   console.log("ANTES DE RENDER");
 
   renderPhaseSelector(main, myPreds);
 
-  // BLOQUEAR PRONÓSTICOS SOLO PARA ADMINS
-  if(isAdmin || isAdmin2){
-    disableUserPredictions(); // función que bloquea inputs de pronósticos
-  }
+  // NO ES NECESARIO bloquear admins aquí si ya lo manejas en otro lado
 
 } catch(err) {
   console.error("Error obteniendo predicciones:", err);
