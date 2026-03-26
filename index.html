@@ -315,6 +315,7 @@ function notificar(msg, type="info") {
 // ─────────────────────────────────────────────────────────────────
 function renderAuth(){
   document.getElementById("app").innerHTML=`
+   <div class="container">
   <div class="auth-wrap">
     <div class="auth-left">
       <div class="auth-brand">
@@ -368,6 +369,7 @@ function renderAuth(){
         </div>
         <p id="auth-err" class="auth-err"></p>
       </div>
+    </div>
     </div>
   </div>`;
 }
