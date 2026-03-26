@@ -224,6 +224,28 @@ function showToast(msg, type="info"){
   requestAnimationFrame(()=>t.classList.add("show"));
   setTimeout(()=>{ t.classList.remove("show"); setTimeout(()=>t.remove(),400); },3500);
 }
+  function notificar(msg, type="info") {
+
+  // Toast (siempre)
+  showToast(msg, type);
+
+  // Notificación real (solo en app)
+  if (window.Capacitor && Capacitor.Plugins.LocalNotifications) {
+
+    Capacitor.Plugins.LocalNotifications.schedule({
+      notifications: [
+        {
+          title: "Quiniela",
+          body: msg,
+          id: Date.now(),
+          schedule: { at: new Date(Date.now() + 1000) }
+        }
+      ]
+    });
+
+  }
+
+}
 
 // ─────────────────────────────────────────────────────────────────
 //  RENDER AUTH
