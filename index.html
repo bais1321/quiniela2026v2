@@ -1625,21 +1625,21 @@ window.printResultados=async()=>{
   };
 
   // AQUÍ pegas esto boton atras
-  document.addEventListener("DOMContentLoaded", () => {
-    if (window.Capacitor && window.Capacitor.Plugins.App) {
+ document.addEventListener("DOMContentLoaded", () => {
 
-      window.Capacitor.Plugins.App.addListener("backButton", () => {
+  if (window.Capacitor) {
 
-        if (window.history.length > 1) {
-          window.history.back();
-        } else {
-          window.Capacitor.Plugins.App.exitApp();
-        }
+    const app = window.Capacitor.Plugins.App;
 
+    if (app) {
+      app.addListener("backButton", () => {
+        window.history.back();
       });
-
     }
-  });
+
+  }
+
+});
 
 </script>
 
