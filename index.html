@@ -901,10 +901,8 @@ function renderPhaseSelector(main,myPreds){
       ${open?`<div class="phase-arrow">›</div>`:''}
     </div>`;
   }).join("");
-
-  main.innerHTML=`
+main.innerHTML=`
 <div class="container">
-
   <div class="page-wrap">
 
     <div class="page-header">
@@ -917,7 +915,6 @@ function renderPhaseSelector(main,myPreds){
     </div>
 
   </div>
-
 </div>`;
 
 window.renderPhaseMatches=async(phaseKey,phaseLabel)=>{
