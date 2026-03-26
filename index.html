@@ -957,20 +957,28 @@ allMatches = matchSnap.docs.map(d=>({...d.data()}));
 console.log("MATCHES CARGADOS:", allMatches);
 
 // 🔥 GENERAR 16AVOS AUTOMÁTICO
-await autoGenerateR32();
+try {
+  console.log("ANTES DE AUTO R32");
 
-  console.log("DESPUÉS DE MATCHES");
+  await autoGenerateR32();
 
-  const predSnap = await getDoc(doc(db,"predictions",currentUser.uid));
+  console.log("DESPUÉS DE AUTO R32");
 
-  console.log("DESPUÉS DE PREDICTIONS");
-
-  const myPreds = predSnap.exists() ? predSnap.data().preds || {} : {};
-
-  console.log("ANTES DE RENDER");
-
-  renderPhaseSelector(main,myPreds);
+} catch(e){
+  console.error("ERROR AUTO R32:", e);
 }
+
+console.log("DESPUÉS DE MATCHES");
+
+const predSnap = await getDoc(doc(db,"predictions",currentUser.uid));
+
+console.log("DESPUÉS DE PREDICTIONS");
+
+const myPreds = predSnap.exists() ? predSnap.data().preds || {} : {};
+
+console.log("ANTES DE RENDER");
+
+renderPhaseSelector(main,myPreds);
 
 function renderPhaseSelector(main,myPreds){
   const phases=[
