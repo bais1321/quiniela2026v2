@@ -1937,36 +1937,6 @@ window.printResultados=async()=>{
 
 });
   //-------------funsion auto-16avos-----------------
- function getTopTeamsByGroup(matches) {
-  const groups = {}; // Cambiamos 'table' por un objeto de grupos
-
-  matches.forEach(m => {
-    // Solo procesar partidos de fase de grupos que tengan resultados oficiales
-    if (m.phase !== "groups" || !m.official) return;
-
-    const gName = m.group; // Ejemplo: "L"
-    if (!groups[gName]) groups[gName] = {};
-
-    const { home, away } = m;
-    const h = m.official.home;
-    const a = m.official.away;
-
-    if (!groups[gName][home]) groups[gName][home] = { name: home, pts: 0, gd: 0 };
-    if (!groups[gName][away]) groups[gName][away] = { name: away, pts: 0, gd: 0 };
-
-    groups[gName][home].gd += (h - a);
-    groups[gName][away].gd += (a - h);
-
-    if (h > a) groups[gName][home].pts += 3;
-    else if (a > h) groups[gName][away].pts += 3;
-    else {
-      groups[gName][home].pts += 1;
-      groups[gName][away].pts += 1;
-    }
-  });
-  
-  return groups;
-}
 
  function getTopTeamsByGroup(matches) {
   const teamsStats = {}; 
