@@ -2003,13 +2003,15 @@ window.printResultados=async()=>{
 
     for (let i = 0; i < matches.length; i++) {
       const match = matches[i];
-      // Usamos el ID específico (r32_1, r32_2, etc.)
-      await updateDoc(doc(db, "matches", match.id), {
+      
+      // Usamos setDoc para CREAR el documento si no existe
+      // match.id debe ser "r32_1", "r32_2", etc.
+      await setDoc(doc(db, "matches", match.id), {
         home: match.h,
         away: match.a,
-        phase: "r32", // Asegúrate de guardar la fase aquí también
+        phase: "r32", 
         locked: false
-      });
+      }, { merge: true }); 
     }
 
     alert("¡16avos actualizados con los grupos terminados! 🚀");
