@@ -1945,28 +1945,35 @@ window.printResultados=async()=>{
   return groups;
 }
 
-  function getQualifiedTeams(allMatches){
+ function getQualifiedTeams(allMatches) {
   const groups = {};
 
+  // 1. Agrupamos los partidos por su letra de grupo
   allMatches
-    .filter(m=>m.phase==="groups")
-    .forEach(m=>{
-      if(!groups[m.group]) groups[m.group]=[];
+    .filter(m => m.phase === "groups")
+    .forEach(m => {
+      if (!groups[m.group]) groups[m.group] = [];
       groups[m.group].push(m);
     });
 
   const result = {};
 
-  Object.keys(groups).forEach(g=>{
+  Object.keys(groups).forEach(g => {
     const table = getTopTeamsByGroup(groups[g]);
 
+    // 2. Convertimos la tabla en un array y ordenamos
     const sorted = Object.entries(table)
-      .sort((a,b)=> b[1].pts - a[1].pts || b[1].gd - a[1].gd);
+      .sort((a, b) => b[1].pts - a[1].pts || b[1].gd - a[1].gd);
 
-    result[g] = {
-      first: sorted[0][0],
-      second: sorted[1][0]
-    };
+    // 3. VALIDACIÓN CRÍTICA: Solo asignamos si hay suficientes equipos con datos
+    if (sorted.length >= 2) {
+      result[g] = {
+        first: sorted[0][0],
+        second: sorted[1][0]
+      };
+    } else {
+      console.warn(`El grupo ${g} aún no tiene suficientes resultados oficiales.`);
+    }
   });
 
   return result;
