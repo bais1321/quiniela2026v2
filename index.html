@@ -1520,7 +1520,7 @@ async function renderAdmin(main){
           <div class="ur-info">
             <div class="ur-name">${u.displayName||u.name||'—'}</div>
             <div class="ur-contact">${u.phone||u.email}</div>
-            <div class="ur-meta"><span class="tag ${u.paid?'tag-ok':'tag-no'}">${u.paid?'✅ Pagó':'❌ Pendiente'}</span> <span class="tag">${Object.keys(predsMap[u.uid]||{}).length}/${allMatches.length} pred.</span></div>
+            <div class="ur-meta"><span class="tag ${u.paid?'tag-ok':'tag-no'}">${u.paid?'✅ Pagó':'❌ Pendiente'}</span> <span class="tag">${Object.keys(predsMap[u.uid]||{}).length}/${allmatches.length} pred.</span></div>
           </div>
           <div class="ur-actions">
             <button onclick="togglePaid('${u.uid}',${!u.paid})" class="btn-xs ${u.paid?'btn-warn':'btn-ok'}">${u.paid?'💰':'💳'}</button>
