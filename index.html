@@ -1978,28 +1978,44 @@ window.printResultados=async()=>{
 
   return result;
 }
-  function generateR32Matches(qualified){
-  return [
-    {home: qualified.A.first, away: qualified.B.second},
-    {home: qualified.B.first, away: qualified.A.second},
-    {home: qualified.C.first, away: qualified.D.second},
-    {home: qualified.D.first, away: qualified.C.second},
-    // sigue según tus grupos
+ function generateR32Matches(qualified) {
+  // Solo definimos los cruces que queremos que existan
+  const cruces = [
+    { id: "r32_1", h: qualified.A?.first, a: qualified.B?.second },
+    { id: "r32_2", h: qualified.B?.first, a: qualified.A?.second },
+    { id: "r32_3", h: qualified.C?.first, a: qualified.D?.second },
+    { id: "r32_4", h: qualified.D?.first, a: qualified.C?.second },
+    // Agrega el resto de grupos (E, F, G, H...) siguiendo este mismo patrón
   ];
+
+  // Filtramos para que solo devuelva los partidos donde AMBOS equipos ya están listos
+  return cruces.filter(c => c.h && c.a);
 }
-  async function fillR32(){
-  const qualified = getQualifiedTeams(allMatches);
-  const matches = generateR32Matches(qualified);
+  async function fillR32() {
+  try {
+    const qualified = getQualifiedTeams(allMatches);
+    const matches = generateR32Matches(qualified);
 
-  for(let i=0;i<matches.length;i++){
-    await updateDoc(doc(db,"matches",`r32_${i+1}`),{
-      home: matches[i].home,
-      away: matches[i].away,
-      locked: false
-    });
+    if (matches.length === 0) {
+      console.log("Aún no hay suficientes grupos terminados para generar 16avos.");
+      return;
+    }
+
+    for (let i = 0; i < matches.length; i++) {
+      const match = matches[i];
+      // Usamos el ID específico (r32_1, r32_2, etc.)
+      await updateDoc(doc(db, "matches", match.id), {
+        home: match.h,
+        away: match.a,
+        phase: "r32", // Asegúrate de guardar la fase aquí también
+        locked: false
+      });
+    }
+
+    alert("¡16avos actualizados con los grupos terminados! 🚀");
+  } catch (error) {
+    console.error("Error en fillR32:", error);
   }
-
-  alert("16avos generados automáticamente 🚀");
 }
   //--------------------------------------------
   async function autoGenerateR32(){
