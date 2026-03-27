@@ -398,20 +398,40 @@ function calcPoints(pred,official){
 }
 
 // ── AUTH ─────────────────────────────────────────────────────────
-onAuthStateChanged(auth,async(user)=>{
-  currentUser=user;
-  if(user){
-    isAdmin=user.email===ADMIN_EMAIL;
-    isAdmin2=user.email===ADMIN2_EMAIL;
-    await Promise.all([loadSettings(),initmatches()]);
-    if(isAdmin||isAdmin2){ renderApp(); return; }
-    const uSnap=await getDoc(doc(db,"users",user.uid));
-    if(uSnap.exists()&&uSnap.data().accessCode){ renderApp(); }
-    else { renderAccessGate(); }
-  } else {
-    isAdmin=false; isAdmin2=false;
-    renderAuth();
-  }
+onAuthStateChanged(auth, async (user) => {
+    currentUser = user;
+    if (user) {
+        // Definir si es admin según los correos guardados
+        isAdmin = user.email === ADMIN_EMAIL;
+        isAdmin2 = user.email === ADMIN2_EMAIL;
+
+        try {
+            // Intentamos cargar todo
+            await Promise.all([loadSettings(), initmatches()]);
+            
+            // Si es admin, entra directo
+            if (isAdmin || isAdmin2) {
+                renderApp();
+                return;
+            }
+
+            // Si no es admin, verifica su código de acceso
+            const uSnap = await getDoc(doc(db, "users", user.uid));
+            if (uSnap.exists() && uSnap.data().accessCode) {
+                renderApp();
+            } else {
+                renderAccessGate();
+            }
+        } catch (error) {
+            console.error("Error cargando datos iniciales:", error);
+            // Forzamos el renderizado para que no se quede en "Cargando"
+            renderApp(); 
+        }
+    } else {
+        isAdmin = false;
+        isAdmin2 = false;
+        renderAuth();
+    }
 });
 
 // ── TOAST NOTIFICATIONS ──────────────────────────────────────────
