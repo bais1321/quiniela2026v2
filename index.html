@@ -1914,29 +1914,36 @@ window.printResultados=async()=>{
 
 });
   //-------------funsion auto-16avos-----------------
-  function getTopTeamsByGroup(matches){
-  const table = {};
+ function getTopTeamsByGroup(matches) {
+  const groups = {}; // Cambiamos 'table' por un objeto de grupos
 
-  matches.forEach(m=>{
-    if(!m.official) return;
+  matches.forEach(m => {
+    // Solo procesar partidos de fase de grupos que tengan resultados oficiales
+    if (m.phase !== "groups" || !m.official) return;
 
-    const {home, away} = m;
+    const gName = m.group; // Ejemplo: "L"
+    if (!groups[gName]) groups[gName] = {};
+
+    const { home, away } = m;
     const h = m.official.home;
     const a = m.official.away;
 
-    if(!table[home]) table[home]={pts:0,gd:0};
-    if(!table[away]) table[away]={pts:0,gd:0};
+    if (!groups[gName][home]) groups[gName][home] = { name: home, pts: 0, gd: 0 };
+    if (!groups[gName][away]) groups[gName][away] = { name: away, pts: 0, gd: 0 };
 
-    table[home].gd += (h-a);
-    table[away].gd += (a-h);
+    groups[gName][home].gd += (h - a);
+    groups[gName][away].gd += (a - h);
 
-    if(h>a) table[home].pts+=3;
-    else if(a>h) table[away].pts+=3;
+    if (h > a) groups[gName][home].pts += 3;
+    else if (a > h) groups[gName][away].pts += 3;
     else {
-      table[home].pts+=1;
-      table[away].pts+=1;
+      groups[gName][home].pts += 1;
+      groups[gName][away].pts += 1;
     }
   });
+  
+  return groups;
+}
 
   return table;
 }
@@ -2024,6 +2031,7 @@ window.printResultados=async()=>{
 
   console.log("🔥 16avos generados automáticamente");
 }
+  window.autoGenerateR32 = autoGenerateR32;
 
 </script>
 
