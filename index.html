@@ -2082,6 +2082,87 @@ window.printResultados=async()=>{
   console.log("🔥 16avos generados automáticamente");
 }
   window.autoGenerateR32 = autoGenerateR32;
+  // ... tus funciones anteriores (calcPoints, initmatches, etc.)
+
+// --- NUEVAS FUNCIONES DE GENERACIÓN ---
+
+async function getGroupStandings() {
+    try {
+        const querySnapshot = await getDocs(collection(db, "matches"));
+        const allMatches = querySnapshot.docs.map(d => ({id: d.id, ...d.data()}));
+        
+        // Filtramos solo los que tienen grupo (Fase de Grupos)
+        const matches = allMatches.filter(m => m.group && m.group.length === 1);
+        
+        let standings = {};
+        "ABCDEFGHIJKL".split("").forEach(g => standings[g] = {});
+
+        matches.forEach(m => {
+            const g = m.group;
+            if (!standings[g][m.home]) standings[g][m.home] = { name: m.home, pts: 0, gd: 0 };
+            if (!standings[g][m.away]) standings[g][m.away] = { name: m.away, pts: 0, gd: 0 };
+
+            if (m.homeScore !== null && m.awayScore !== null) {
+                const hS = parseInt(m.homeScore);
+                const aS = parseInt(m.awayScore);
+                
+                if (hS > aS) standings[g][m.home].pts += 3;
+                else if (hS < aS) standings[g][m.away].pts += 3;
+                else { standings[g][m.home].pts += 1; standings[g][m.away].pts += 1; }
+                
+                standings[g][m.home].gd += (hS - aS);
+                standings[g][m.away].gd += (aS - hS);
+            }
+        });
+
+        let result = {};
+        Object.keys(standings).forEach(g => {
+            result[g] = Object.values(standings[g]).sort((a, b) => b.pts - a.pts || b.gd - a.gd);
+        });
+        return result;
+    } catch (e) {
+        console.error("Error calculando tablas:", e);
+    }
+}
+
+async function generateR32() {
+    if (!confirm("¿Estás seguro de generar los Dieciseisavos? Esto sobrescribirá los partidos de R32 existentes.")) return;
+    
+    const groups = await getGroupStandings();
+    const r32Matches = [];
+
+    // Definición de cruces (1ro de un grupo vs 2do de otro)
+    // Ejemplo: A1 vs B2, B1 vs A2, C1 vs D2...
+    const matchups = [
+        {h: groups.A[0], a: groups.B[1]}, {h: groups.B[0], a: groups.A[1]},
+        {h: groups.C[0], a: groups.D[1]}, {h: groups.D[0], a: groups.C[1]},
+        {h: groups.E[0], a: groups.F[1]}, {h: groups.F[0], a: groups.E[1]},
+        {h: groups.G[0], a: groups.H[1]}, {h: groups.H[0], a: groups.G[1]},
+        {h: groups.I[0], a: groups.J[1]}, {h: groups.J[0], a: groups.I[1]},
+        {h: groups.K[0], a: groups.L[1]}, {h: groups.L[0], a: groups.K[1]}
+    ];
+
+    try {
+        for (let i = 0; i < matchups.length; i++) {
+            const id = `r32_${i + 1}`;
+            const matchData = {
+                id: id,
+                home: matchups[i].h ? matchups[i].h.name : "TBD",
+                away: matchups[i].a ? matchups[i].a.name : "TBD",
+                homeScore: null,
+                awayScore: null,
+                phase: "R32", // Asegúrate que esto coincida con tu filtro visual
+                order: i + 1
+            };
+            await setDoc(doc(db, "matches", id), matchData);
+        }
+        alert("¡Fase R32 generada con éxito!");
+        location.reload();
+    } catch (e) {
+        alert("Error al guardar en Firebase: " + e.message);
+    }
+}
+
 
 </script>
 
