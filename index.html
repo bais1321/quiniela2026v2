@@ -955,34 +955,33 @@ async function renderPronos(main){
 allMatches = matchSnap.docs.map(d=>({...d.data()}));
 
 console.log("MATCHES CARGADOS:", allMatches);
-
+  
 // 🔥 GENERAR 16AVOS AUTOMÁTICO
-console.log("ANTES DE AUTO R32");
+(async () => {
+    console.log("ANTES DE AUTO R32");
 
-try {
-  // GENERAR PARTIDOS SIEMPRE
-  await autoGenerateR32();
-} catch(e) {
-  console.error("ERROR AUTO R32:", e);
-}
+    try {
+        // GENERAR PARTIDOS SIEMPRE
+        await autoGenerateR32();
+    } catch(e) {
+        console.error("ERROR AUTO R32:", e);
+    }
 
-console.log("DESPUÉS DE MATCHES");
+    console.log("DESPUÉS DE MATCHES");
 
-try {
-  // OBTENER PREDICCIONES DEL USUARIO
-  const predSnap = await getDoc(doc(db, "predictions", currentUser.uid));
-  const myPreds = predSnap.exists() ? predSnap.data().preds || {} : {};
+    try {
+        // OBTENER PREDICCIONES DEL USUARIO
+        const predSnap = await getDoc(doc(db, "predictions", currentUser.uid));
+        const myPreds = predSnap.exists() ? predSnap.data().preds || {} : {};
 
-  console.log("ANTES DE RENDER");
+        console.log("ANTES DE RENDER");
 
-  renderPhaseSelector(main, myPreds);
+        renderPhaseSelector(main, myPreds);
 
-  // NO ES NECESARIO bloquear admins aquí si ya lo manejas en otro lado
-
-} catch(err) {
-  console.error("Error obteniendo predicciones:", err);
-}
-
+    } catch(err) {
+        console.error("Error obteniendo predicciones:", err);
+    }
+})(); // <--- Estos paréntesis finales ejecutan la función de inmediato
 function renderPhaseSelector(main,myPreds){
   const phases=[
     {key:"groups",label:"Fase de Grupos",icon:"⚽",matches:allMatches.filter(m=>m.phase==="groups")},
