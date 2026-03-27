@@ -1968,7 +1968,36 @@ window.printResultados=async()=>{
   return groups;
 }
 
- function getQualifiedTeams(allmatches) {
+ function getTopTeamsByGroup(matches) {
+  const teamsStats = {}; 
+
+  matches.forEach(m => {
+    // Solo procesar fase de grupos que tengan marcadores numéricos
+    if (m.phase !== "groups") return;
+    if (m.homeScore === null || m.awayScore === null || m.homeScore === undefined) return;
+
+    const { home, away } = m;
+    const h = parseInt(m.homeScore);
+    const a = parseInt(m.awayScore);
+
+    if (!teamsStats[home]) teamsStats[home] = { name: home, pts: 0, gd: 0 };
+    if (!teamsStats[away]) teamsStats[away] = { name: away, pts: 0, gd: 0 };
+
+    teamsStats[home].gd += (h - a);
+    teamsStats[away].gd += (a - h);
+
+    if (h > a) teamsStats[home].pts += 3;
+    else if (a > h) teamsStats[away].pts += 3;
+    else {
+      teamsStats[home].pts += 1;
+      teamsStats[away].pts += 1;
+    }
+  });
+  
+  return teamsStats;
+}
+
+function getQualifiedTeams(allmatches) {
   const groups = {};
 
   // 1. Agrupamos los partidos por su letra de grupo
@@ -1984,60 +2013,72 @@ window.printResultados=async()=>{
   Object.keys(groups).forEach(g => {
     const table = getTopTeamsByGroup(groups[g]);
 
-    // 2. Convertimos la tabla en un array y ordenamos
-    const sorted = Object.entries(table)
-      .sort((a, b) => b[1].pts - a[1].pts || b[1].gd - a[1].gd);
+    // 2. Convertimos la tabla en un array y ordenamos por Puntos y luego Diferencia de Goles
+    const sorted = Object.values(table)
+      .sort((a, b) => b.pts - a.pts || b.gd - a.gd);
 
-    // 3. VALIDACIÓN CRÍTICA: Solo asignamos si hay suficientes equipos con datos
+    // 3. Asignamos los clasificados si el grupo tiene datos
     if (sorted.length >= 2) {
       result[g] = {
-        first: sorted[0][0],
-        second: sorted[1][0]
+        first: sorted[0].name,
+        second: sorted[1].name
       };
     } else {
-      console.warn(`El grupo ${g} aún no tiene suficientes resultados oficiales.`);
+      console.warn(`El grupo ${g} aún no tiene suficientes resultados procesables.`);
     }
   });
 
   return result;
 }
- function generateR32matches(qualified) {
-  // Solo definimos los cruces que queremos que existan
+
+function generateR32matches(qualified) {
+  // Definición de los 16 partidos (A-L son 12 grupos, salen 24 equipos directos)
+  // Nota: Faltarían 8 mejores terceros para completar 32, pero aquí están los 12 cruces directos:
   const cruces = [
     { id: "R32_1", h: qualified.A?.first, a: qualified.B?.second },
     { id: "R32_2", h: qualified.B?.first, a: qualified.A?.second },
     { id: "R32_3", h: qualified.C?.first, a: qualified.D?.second },
     { id: "R32_4", h: qualified.D?.first, a: qualified.C?.second },
-    // Agrega el resto de grupos (E, F, G, H...) siguiendo este mismo patrón
+    { id: "R32_5", h: qualified.E?.first, a: qualified.F?.second },
+    { id: "R32_6", h: qualified.F?.first, a: qualified.E?.second },
+    { id: "R32_7", h: qualified.G?.first, a: qualified.H?.second },
+    { id: "R32_8", h: qualified.H?.first, a: qualified.G?.second },
+    { id: "R32_9", h: qualified.I?.first, a: qualified.J?.second },
+    { id: "R32_10", h: qualified.J?.first, a: qualified.I?.second },
+    { id: "R32_11", h: qualified.K?.first, a: qualified.L?.second },
+    { id: "R32_12", h: qualified.L?.first, a: qualified.K?.second },
+    // Si tienes lógica de mejores terceros, se añadirían r32_13 al 16 aquí
   ];
 
-  // Filtramos para que solo devuelva los partidos donde AMBOS equipos ya están listos
+  // Solo devuelve los partidos donde ambos equipos están definidos
   return cruces.filter(c => c.h && c.a);
 }
-  async function fillR32() {
-  try {
-    const qualified = getQualifiedTeams(allmatches);
-    const matches = generateR32matches(qualified);
 
-    if (matches.length === 0) {
-      console.log("Aún no hay suficientes grupos terminados para generar 16avos.");
+async function fillR32() {
+  try {
+    console.log("Calculando clasificados...");
+    const qualified = getQualifiedTeams(allmatches);
+    const matchesToCreate = generateR32matches(qualified);
+
+    if (matchesToCreate.length === 0) {
+      console.log("Aún no hay grupos listos para generar Dieciseisavos.");
       return;
     }
 
-    for (let i = 0; i < matches.length; i++) {
-      const match = matches[i];
-      
-      // Usamos setDoc para CREAR el documento si no existe
-      // match.id debe ser "r32_1", "r32_2", etc.
-      await setDoc(doc(db, "matches", match.id), {
-        home: match.h,
-        away: match.a,
+    for (const m of matchesToCreate) {
+      await setDoc(doc(db, "matches", m.id), {
+        id: m.id,
+        home: m.h,
+        away: m.a,
+        homeScore: null,
+        awayScore: null,
         phase: "R32", 
         locked: false
       }, { merge: true }); 
     }
 
-    alert("¡16avos actualizados con los grupos terminados! 🚀");
+    alert("¡Fase R32 actualizada con éxito! 🚀");
+    location.reload();
   } catch (error) {
     console.error("Error en fillR32:", error);
   }
