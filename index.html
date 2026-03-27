@@ -931,57 +931,49 @@ window.removePhotoHome=async(i)=>{
   goTo("inicio");
 };
 
-// ─────────────────────────────────────────────────────────────────
 //  PRONÓSTICOS
-// ─────────────────────────────────────────────────────────────────
-async function renderPronos(main){
-  console.log("ENTRÓ A PRONOS");
+async function renderPronos(main) {
+    console.log("ENTRÓ A PRONOS");
 
-  if(isAdmin || isAdmin2){
-    main.innerHTML=`<div class="page-wrap"><div class="card center-card">
-      <div style="font-size:3rem">🚫</div>
-      <h3>Los administradores no pueden llenar pronósticos</h3>
-    </div></div>`;
-    return;
-  }
-
-  main.innerHTML=`<div class="page-wrap"><div class="loading-spin"></div></div>`;
-
-  console.log("ANTES DE FIREBASE");
-
-  const matchSnap = await getDocs(collection(db,"matches"));
-
-// 🔥 GUARDAR MATCHES
-allMatches = matchSnap.docs.map(d=>({...d.data()}));
-
-console.log("MATCHES CARGADOS:", allMatches);
-  
-// 🔥 GENERAR 16AVOS AUTOMÁTICO
-(async () => {
-    console.log("ANTES DE AUTO R32");
-
-    try {
-        // GENERAR PARTIDOS SIEMPRE
-        await autoGenerateR32();
-    } catch(e) {
-        console.error("ERROR AUTO R32:", e);
+    if (isAdmin || isAdmin2) {
+        main.innerHTML = `<div class="page-wrap"><div class="card center-card">
+            <div style="font-size:3rem">🚫</div>
+            <h3>Los administradores no pueden llenar pronósticos</h3>
+        </div></div>`;
+        return;
     }
 
-    console.log("DESPUÉS DE MATCHES");
+    main.innerHTML = `<div class="page-wrap"><div class="loading-spin"></div></div>`;
+
+    console.log("ANTES DE FIREBASE");
 
     try {
-        // OBTENER PREDICCIONES DEL USUARIO
+        // 1. Obtener partidos
+        const matchSnap = await getDocs(collection(db, "matches"));
+        allMatches = matchSnap.docs.map(d => ({ ...d.data() }));
+        console.log("MATCHES CARGADOS:", allMatches);
+
+        // 2. Generar 16vos (R32)
+        console.log("ANTES DE AUTO R32");
+        try {
+            await autoGenerateR32();
+        } catch (e) {
+            console.error("ERROR AUTO R32:", e);
+        }
+
+        // 3. Obtener predicciones y Renderizar
+        console.log("DESPUÉS DE MATCHES - OBTENIENDO PREDICCIONES");
         const predSnap = await getDoc(doc(db, "predictions", currentUser.uid));
         const myPreds = predSnap.exists() ? predSnap.data().preds || {} : {};
 
-        console.log("ANTES DE RENDER");
-
+        console.log("ANTES DE RENDER FINAL");
         renderPhaseSelector(main, myPreds);
 
-    } catch(err) {
-        console.error("Error obteniendo predicciones:", err);
+    } catch (err) {
+        console.error("Error general en renderPronos:", err);
+        main.innerHTML = `<p>Error al cargar la quiniela. Revisa tu conexión.</p>`;
     }
-})(); // <--- Estos paréntesis finales ejecutan la función de inmediato
+} // <--- ESTA LLAVE ES LA QUE CIERRA TODO EL BLOQUE
 function renderPhaseSelector(main,myPreds){
   const phases=[
     {key:"groups",label:"Fase de Grupos",icon:"⚽",matches:allMatches.filter(m=>m.phase==="groups")},
