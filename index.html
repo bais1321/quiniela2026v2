@@ -949,41 +949,50 @@ async function renderPronos(main) {
     console.log("ANTES DE FIREBASE");
 
     try {
-        // 1. Obtener partidos
+        // 1. Obtener partidos (Carga inicial)
         const matchSnap = await getDocs(collection(db, "matches"));
-        allMatches = matchSnap.docs.map(d => ({ ...d.data() }));
-        console.log("MATCHES CARGADOS:", allMatches);
+        allMatches = matchSnap.docs.map(d => ({ ...d.data(), id: d.id }));
 
-        // 2. Generar 16vos (R32)
-        console.log("ANTES DE AUTO R32");
+        // 2. Generar 16vos (R32) y Recarga Crítica
         try {
+            console.log("Generando R32...");
             await autoGenerateR32();
+            
+            // Recargamos para que la variable allMatches tenga los nuevos partidos
+            const updatedSnap = await getDocs(collection(db, "matches"));
+            allMatches = updatedSnap.docs.map(d => ({ ...d.data(), id: d.id }));
+            console.log("MATCHES ACTUALIZADOS:", allMatches.length);
         } catch (e) {
-            console.error("ERROR AUTO R32:", e);
+            console.error("ERROR EN AUTO R32:", e);
         }
 
         // 3. Obtener predicciones y Renderizar
-        console.log("DESPUÉS DE MATCHES - OBTENIENDO PREDICCIONES");
         const predSnap = await getDoc(doc(db, "predictions", currentUser.uid));
         const myPreds = predSnap.exists() ? predSnap.data().preds || {} : {};
 
-        console.log("ANTES DE RENDER FINAL");
+        console.log("RENDERIZANDO FASES...");
         renderPhaseSelector(main, myPreds);
 
     } catch (err) {
+        // ESTO ES LO QUE PREGUNTABAS: Sí es necesario para manejar errores graves
         console.error("Error general en renderPronos:", err);
-        main.innerHTML = `<p>Error al cargar la quiniela. Revisa tu conexión.</p>`;
+        main.innerHTML = `<div class="card">
+            <p>Error al cargar la quiniela. Revisa tu conexión.</p>
+            <button onclick="location.reload()">Reintentar</button>
+        </div>`;
     }
-} // <--- ESTA LLAVE ES LA QUE CIERRA TODO EL BLOQUE
 function renderPhaseSelector(main,myPreds){
   const phases=[
-    {key:"groups",label:"Fase de Grupos",icon:"⚽",matches:allMatches.filter(m=>m.phase==="groups")},
-    {key:"R32",label:"Dieciseisavos de Final",icon:"🥊",matches:allMatches.filter(m=>m.phase==="r32")},
-    {key:"r16",label:"Octavos de Final",icon:"🔥",matches:allMatches.filter(m=>m.phase==="r16")},
-    {key:"qf",label:"Cuartos de Final",icon:"⚡",matches:allMatches.filter(m=>m.phase==="qf")},
-    {key:"sf",label:"Semifinales",icon:"🏟️",matches:allMatches.filter(m=>m.phase==="sf")},
-    {key:"tf",label:"Tercer Lugar",icon:"🥉",matches:allMatches.filter(m=>m.phase==="tf")},
-    {key:"final",label:"Final",icon:"🏆",matches:allMatches.filter(m=>m.phase==="final")},
+    {key:"groups", label:"Fase de Grupos", icon:"⚽", matches:allMatches.filter(m=>m.phase==="groups")},
+    
+    // CAMBIO AQUÍ: Cambiamos "r32" por "R32" para que coincida con Firebase
+    {key:"R32", label:"Dieciseisavos de Final", icon:"🥊", matches:allMatches.filter(m=>m.phase==="R32")},
+    
+    {key:"r16", label:"Octavos de Final", icon:"🔥", matches:allMatches.filter(m=>m.phase==="r16")},
+    {key:"qf", label:"Cuartos de Final", icon:"⚡", matches:allMatches.filter(m=>m.phase==="qf")},
+    {key:"sf", label:"Semifinales", icon:"🏟️", matches:allMatches.filter(m=>m.phase==="sf")},
+    {key:"tf", label:"Tercer Lugar", icon:"🥉", matches:allMatches.filter(m=>m.phase==="tf")},
+    {key:"final", label:"Final", icon:"🏆", matches:allMatches.filter(m=>m.phase==="final")},
   ];
   const unlocked = siteSettings.phases || {
   groups: true,
