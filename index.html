@@ -219,7 +219,7 @@ const db   = getFirestore(app);
 
 let currentUser = null;
 let isAdmin = false, isAdmin2 = false;
-let allMatches = [];
+let allmatches = [];
 let matchesListener = null;
 let notifListener = null;
 let siteSettings = {
@@ -246,7 +246,7 @@ const FLAGS={
 const f=t=>FLAGS[t]||"⚽";
 
 // ── Partidos fase de grupos ──────────────────────────────────────
-const GROUP_MATCHES = [
+const GROUP_matches = [
   {id:"g_a1",phase:"groups",group:"A",home:"México",away:"Polonia",date:"2026-06-11",time:"18:00",locked:false,official:null},
   {id:"g_a2",phase:"groups",group:"A",home:"Arabia Saudita",away:"Argentina",date:"2026-06-11",time:"21:00",locked:false,official:null},
   {id:"g_a3",phase:"groups",group:"A",home:"Polonia",away:"Arabia Saudita",date:"2026-06-16",time:"12:00",locked:false,official:null},
@@ -321,7 +321,7 @@ const GROUP_MATCHES = [
   {id:"g_l6",phase:"groups",group:"L",home:"Costa de Marfil",away:"Rumanía",date:"2026-06-26",time:"18:00",locked:false,official:null},
 ];
 
-const ELIM_MATCHES = [
+const ELIM_matches = [
   // Dieciseisavos (R32)
 {id:"R32_1",phase:"R32",label:"16avos 1",home:"TBD",away:"TBD",date:"2026-06-25",time:"16:00",locked:true,official:null},
 {id:"R32_2",phase:"R32",label:"16avos 2",home:"TBD",away:"TBD",date:"2026-06-25",time:"20:00",locked:true,official:null},
@@ -362,12 +362,12 @@ const ELIM_MATCHES = [
   {id:"final_1",phase:"final",label:"FINAL",home:"TBD",away:"TBD",date:"2026-07-15",time:"18:00",locked:true,official:null},
 ];
 
-const ALL_MATCHES=[...GROUP_MATCHES,...ELIM_MATCHES];
+const ALL_maches=[...GROUP_matches,...ELIM_matches];
 
-async function initMatches(){
+async function initmatches(){
   const snap=await getDoc(doc(db,"settings","matchesInit"));
   if(snap.exists()) return;
-  await Promise.all(ALL_MATCHES.map(m=>setDoc(doc(db,"matches",m.id),m)));
+  await Promise.all(ALL_matches.map(m=>setDoc(doc(db,"matches",m.id),m)));
   await setDoc(doc(db,"settings","matchesInit"),{done:true,ts:serverTimestamp()});
 }
 
@@ -403,7 +403,7 @@ onAuthStateChanged(auth,async(user)=>{
   if(user){
     isAdmin=user.email===ADMIN_EMAIL;
     isAdmin2=user.email===ADMIN2_EMAIL;
-    await Promise.all([loadSettings(),initMatches()]);
+    await Promise.all([loadSettings(),initmatches()]);
     if(isAdmin||isAdmin2){ renderApp(); return; }
     const uSnap=await getDoc(doc(db,"users",user.uid));
     if(uSnap.exists()&&uSnap.data().accessCode){ renderApp(); }
@@ -744,9 +744,9 @@ async function renderProbabilidades(main){
     <p style="color:var(--muted);font-size:.85rem;margin-top:-.5rem">Distribución de pronósticos de todos los participantes por partido.</p>`;
 
   for(const g of groups){
-    const gMatches=matches.filter(m=>m.group===g);
+    const gmatches=matches.filter(m=>m.group===g);
     html+=`<div class="card"><div class="card-title">Grupo ${g}</div>`;
-    gMatches.forEach(m=>{
+    gmatches.forEach(m=>{
       const s=matchStats[m.id]||{home:0,draw:0,away:0,scores:{},total:0};
       const tot=s.total||1;
       const homePct=Math.round(s.home/tot*100);
@@ -949,8 +949,8 @@ async function renderPronos(main) {
 
         // 3. Carga de partidos (Ya con los nuevos R32 si es que se crearon)
         const matchSnap = await getDocs(collection(db, "matches"));
-        allMatches = matchSnap.docs.map(d => ({ ...d.data(), id: d.id }));
-        console.log("Partidos totales en sistema:", allMatches.length);
+        allmatches = matchSnap.docs.map(d => ({ ...d.data(), id: d.id }));
+        console.log("Partidos totales en sistema:", allmatches.length);
 
         // 4. Bloqueo para Admins (Tú solo generas, no juegas)
         if (isAdmin || isAdmin2) {
@@ -960,7 +960,7 @@ async function renderPronos(main) {
                         <div style="font-size:3rem">⚙️</div>
                         <h3>Modo Administrador</h3>
                         <p>Los Dieciseisavos de Final han sido procesados.</p>
-                        <p>Total partidos en base de datos: <b>${allMatches.length}</b></p>
+                        <p>Total partidos en base de datos: <b>${allmatches.length}</b></p>
                         <button class="btn-block" onclick="location.reload()">Actualizar Vista</button>
                     </div>
                 </div>`;
@@ -981,16 +981,16 @@ async function renderPronos(main) {
 }
 function renderPhaseSelector(main,myPreds){
   const phases=[
-    {key:"groups", label:"Fase de Grupos", icon:"⚽", matches:allMatches.filter(m=>m.phase==="groups")},
+    {key:"groups", label:"Fase de Grupos", icon:"⚽", matches:allmatches.filter(m=>m.phase==="groups")},
     
     // CAMBIO AQUÍ: Cambiamos "r32" por "R32" para que coincida con Firebase
-    {key:"R32", label:"Dieciseisavos de Final", icon:"🥊", matches:allMatches.filter(m=>m.phase==="R32")},
+    {key:"R32", label:"Dieciseisavos de Final", icon:"🥊", matches:allmatches.filter(m=>m.phase==="R32")},
     
-    {key:"r16", label:"Octavos de Final", icon:"🔥", matches:allMatches.filter(m=>m.phase==="r16")},
-    {key:"qf", label:"Cuartos de Final", icon:"⚡", matches:allMatches.filter(m=>m.phase==="qf")},
-    {key:"sf", label:"Semifinales", icon:"🏟️", matches:allMatches.filter(m=>m.phase==="sf")},
-    {key:"tf", label:"Tercer Lugar", icon:"🥉", matches:allMatches.filter(m=>m.phase==="tf")},
-    {key:"final", label:"Final", icon:"🏆", matches:allMatches.filter(m=>m.phase==="final")},
+    {key:"r16", label:"Octavos de Final", icon:"🔥", matches:allmatches.filter(m=>m.phase==="r16")},
+    {key:"qf", label:"Cuartos de Final", icon:"⚡", matches:allmatches.filter(m=>m.phase==="qf")},
+    {key:"sf", label:"Semifinales", icon:"🏟️", matches:allmatches.filter(m=>m.phase==="sf")},
+    {key:"tf", label:"Tercer Lugar", icon:"🥉", matches:allmatches.filter(m=>m.phase==="tf")},
+    {key:"final", label:"Final", icon:"🏆", matches:allmatches.filter(m=>m.phase==="final")},
   ];
   const unlocked = siteSettings.phases || {
   groups: true,
@@ -1008,7 +1008,7 @@ console.log("FASES:", phases);
     const saved=ph.matches.filter(m=>myPreds[m.id]!==undefined).length;
     const total=ph.matches.length;
     const done=saved===total&&total>0;
-    return `<div class="phase-card ${!open?'phase-locked':done?'phase-done':saved>0?'phase-partial':''}" onclick="${open?`renderPhaseMatches('${ph.key}','${ph.label}')`:""}" style="${!open?"cursor:not-allowed":"cursor:pointer"}">
+    return `<div class="phase-card ${!open?'phase-locked':done?'phase-done':saved>0?'phase-partial':''}" onclick="${open?`renderPhasematches('${ph.key}','${ph.label}')`:""}" style="${!open?"cursor:not-allowed":"cursor:pointer"}">
       <div class="phase-icon">${open?ph.icon:'🔒'}</div>
       <div class="phase-info">
         <div class="phase-label">${ph.label}</div>
@@ -1033,7 +1033,7 @@ main.innerHTML=`
   </div>
 </div>`;
 }
-window.renderPhaseMatches=async(phaseKey,phaseLabel)=>{
+window.renderPhasematches=async(phaseKey,phaseLabel)=>{
   const main=document.getElementById("main");
   main.innerHTML=`<div class="page-wrap"><div class="loading-spin"></div></div>`;
   if(matchesListener){matchesListener();matchesListener=null;}
@@ -1050,10 +1050,10 @@ window.renderPhaseMatches=async(phaseKey,phaseLabel)=>{
 };
 
 function renderGroupSelector(main,myPreds,phaseKey,phaseLabel){
-  const gMatches=allMatches.filter(m=>m.phase==="groups");
-  const groups=[...new Set(gMatches.map(m=>m.group))].sort();
+  const gmatches=allmatches.filter(m=>m.phase==="groups");
+  const groups=[...new Set(gmatches.map(m=>m.group))].sort();
   const btns=groups.map(g=>{
-    const gm=gMatches.filter(m=>m.group===g);
+    const gm=gmatches.filter(m=>m.group===g);
     const saved=gm.filter(m=>myPreds[m.id]!==undefined).length;
     const done=saved===gm.length;
     return `<button class="group-tile ${done?'group-tile-done':saved>0?'group-tile-partial':''}" onclick="openGroup('${g}')">
@@ -1084,7 +1084,7 @@ window.openGroup=async(g)=>{
 };
 
 function buildGroupView(main,g,myPreds){
-  const gm=allMatches.filter(m=>m.group===g);
+  const gm=allmatches.filter(m=>m.group===g);
   const saved={};
   gm.forEach(m=>{const he=document.getElementById(`h_${m.id}`);const ae=document.getElementById(`a_${m.id}`);if(he&&ae){saved[m.id]={h:he.value,a:ae.value};}});
   let hasUnsaved=false;
@@ -1127,7 +1127,7 @@ function buildGroupView(main,g,myPreds){
 
   <div class="page-wrap">
     <div class="page-header">
-      <button class="btn-back" onclick="stopListener();renderPhaseMatches('groups','Fase de Grupos')">‹ Grupos</button>
+      <button class="btn-back" onclick="stopListener();renderPhasematches('groups','Fase de Grupos')">‹ Grupos</button>
       <h2 class="page-title">Grupo ${g}</h2>
     </div>
     <div class="matches-v2">${rows}</div>
@@ -1139,7 +1139,7 @@ function buildGroupView(main,g,myPreds){
 window.stopListener=()=>{if(matchesListener){matchesListener();matchesListener=null;}};
 
 function renderElimPhase(main,myPreds,phaseKey,phaseLabel){
-  const pm=allMatches.filter(m=>m.phase===phaseKey);
+  const pm=allmatches.filter(m=>m.phase===phaseKey);
   let hasUnsaved=false;
   let rows=pm.map(m=>{
     const pred=myPreds[m.id];
@@ -1186,7 +1186,7 @@ function renderElimPhase(main,myPreds,phaseKey,phaseLabel){
 }
 
 window.saveGroup=async(g)=>{
-  const gm=allMatches.filter(m=>m.group===g);
+  const gm=allmatches.filter(m=>m.group===g);
   const ref=doc(db,"predictions",currentUser.uid);
   const snap=await getDoc(ref);
   const existing=snap.exists()?snap.data().preds||{}:{};
@@ -1205,7 +1205,7 @@ window.saveGroup=async(g)=>{
 };
 
 window.savePhase=async(phaseKey)=>{
-  const pm=allMatches.filter(m=>m.phase===phaseKey);
+  const pm=allmatches.filter(m=>m.phase===phaseKey);
   const ref=doc(db,"predictions",currentUser.uid);
   const snap=await getDoc(ref);
   const existing=snap.exists()?snap.data().preds||{}:{};
@@ -1230,7 +1230,7 @@ async function renderTabla(main){
   main.innerHTML=`<div class="page-wrap"><div class="loading-spin"></div></div>`;
   const matchSnap=await getDocs(collection(db,"matches"));
   const sortedM=matchSnap.docs.map(d=>d.data()).sort((a,b)=>a.date.localeCompare(b.date)||a.time.localeCompare(b.time));
-  allMatches=sortedM;
+  allmatches=sortedM;
   const offMap={};
   sortedM.forEach(m=>{if(m.official) offMap[m.id]=m.official;});
   const predsSnap=await getDocs(collection(db,"predictions"));
@@ -1392,7 +1392,7 @@ function renderReglas(main){
 async function renderAdmin(main){
   if(!isAdmin){main.innerHTML="<p>Acceso denegado.</p>";return;}
   const matchSnap=await getDocs(collection(db,"matches"));
-  allMatches=matchSnap.docs.map(d=>({...d.data()})).sort((a,b)=>a.date.localeCompare(b.date)||a.time.localeCompare(b.time));
+  allmatches=matchSnap.docs.map(d=>({...d.data()})).sort((a,b)=>a.date.localeCompare(b.date)||a.time.localeCompare(b.time));
   const usersSnap=await getDocs(collection(db,"users"));
   const users=[]; usersSnap.forEach(d=>users.push(d.data()));
   const predsSnap=await getDocs(collection(db,"predictions"));
@@ -1442,7 +1442,7 @@ async function renderAdmin(main){
     <div class="acard">
       <h3>✏️ Equipos Fases Eliminatorias</h3>
       <p style="color:var(--c3);font-size:.85rem;margin-bottom:1rem">Ingresa los equipos clasificados para cada partido eliminatorio.</p>
-      ${allMatches.filter(m=>m.phase!=="groups").map(m=>`
+      ${allmatches.filter(m=>m.phase!=="groups").map(m=>`
       <div style="margin-bottom:.75rem;padding:.6rem;background:rgba(255,255,255,0.02);border-radius:8px">
         <div style="font-size:.78rem;color:var(--c1);margin-bottom:.4rem;font-weight:600">${m.label}</div>
         <div style="display:flex;gap:.4rem;align-items:center;flex-wrap:wrap">
@@ -1480,7 +1480,7 @@ async function renderAdmin(main){
         <button class="btn-sm" onclick="abrirEnNavegador()">💾 Guardar PDF Resultados</button>
       </div>
       <div class="matches-admin">
-        ${allMatches.map(m=>`
+        ${allmatches.map(m=>`
         <div class="mar">
           <span class="mar-label">${m.label||('Grupo '+m.group+': ')} ${f(m.home)} ${m.home} vs ${m.away} ${f(m.away)} <small>(${m.date})</small></span>
           <div class="mar-controls">
@@ -1522,7 +1522,7 @@ async function renderAdmin(main){
 async function renderAdmin2(main){
   if(!isAdmin2){main.innerHTML="<p>Acceso denegado.</p>";return;}
   const matchSnap=await getDocs(collection(db,"matches"));
-  allMatches=matchSnap.docs.map(d=>({...d.data()})).sort((a,b)=>a.date.localeCompare(b.date)||a.time.localeCompare(b.time));
+  allmatches=matchSnap.docs.map(d=>({...d.data()})).sort((a,b)=>a.date.localeCompare(b.date)||a.time.localeCompare(b.time));
   const usersSnap=await getDocs(collection(db,"users"));
   const users=[]; usersSnap.forEach(d=>users.push(d.data()));
   const predsSnap=await getDocs(collection(db,"predictions"));
@@ -1539,7 +1539,7 @@ async function renderAdmin2(main){
         <button class="btn-sm" onclick="abrirEnNavegador()">💾 Guardar PDF Resultados</button>
       </div>
       <div class="matches-admin">
-        ${allMatches.map(m=>`
+        ${allmatches.map(m=>`
         <div class="mar">
           <span class="mar-label">${m.label||('Grupo '+m.group+': ')} ${f(m.home)} ${m.home} vs ${m.away} ${f(m.away)}</span>
           <div class="mar-controls">
@@ -1794,7 +1794,7 @@ window.printMisPronos=async()=>{
   const uSnap=await getDoc(doc(db,"users",currentUser.uid));
   const name=(uSnap.exists()?uSnap.data().displayName:"")||currentUser.email;
   const preds=window._myPreds||{};
-  const matches=window._allMatchesPrint||allMatches;
+  const matches=window._allmatchesPrint||allmatches;
   const groups=[...new Set(matches.filter(m=>m.phase==="groups").map(m=>m.group))].sort();
   const col1=groups.slice(0,6), col2=groups.slice(6);
   const pdf=getPDF(false);
@@ -1819,7 +1819,7 @@ window.printMisPronos=async()=>{
 window.printTablaV2=()=>{
   notificar("Generando PDF...","info");
   const lb=window._lb||[];
-  const matches=window._sortedM||allMatches;
+  const matches=window._sortedM||allmatches;
   const pdf=getPDF(true);
   pdfHeader(pdf,"QUINIELA MUNDIAL 2026 — Tabla de Posiciones",`${lb.length} participantes | ${new Date().toLocaleDateString("es-GT")}`);
   const cmap={exact:[46,158,91],winner:[201,168,76],miss:[192,57,43],pending:[180,180,180],none:[220,220,220]};
@@ -1952,11 +1952,11 @@ window.printResultados=async()=>{
   return groups;
 }
 
- function getQualifiedTeams(allMatches) {
+ function getQualifiedTeams(allmatches) {
   const groups = {};
 
   // 1. Agrupamos los partidos por su letra de grupo
-  allMatches
+  allmatches
     .filter(m => m.phase === "groups")
     .forEach(m => {
       if (!groups[m.group]) groups[m.group] = [];
@@ -1985,7 +1985,7 @@ window.printResultados=async()=>{
 
   return result;
 }
- function generateR32Matches(qualified) {
+ function generateR32matches(qualified) {
   // Solo definimos los cruces que queremos que existan
   const cruces = [
     { id: "R32_1", h: qualified.A?.first, a: qualified.B?.second },
@@ -2000,8 +2000,8 @@ window.printResultados=async()=>{
 }
   async function fillR32() {
   try {
-    const qualified = getQualifiedTeams(allMatches);
-    const matches = generateR32Matches(qualified);
+    const qualified = getQualifiedTeams(allmatches);
+    const matches = generateR32matches(qualified);
 
     if (matches.length === 0) {
       console.log("Aún no hay suficientes grupos terminados para generar 16avos.");
@@ -2028,10 +2028,10 @@ window.printResultados=async()=>{
 }
   //--------------------------------------------
   async function autoGenerateR32(){
-  const groupMatches = allMatches.filter(m=>m.phase==="groups");
+  const groupmatches = allmatches.filter(m=>m.phase==="groups");
 
   // 🔴 Verificar que TODOS tengan resultado
-  const allPlayed = groupMatches.every(m => m.official);
+  const allPlayed = groupmatches.every(m => m.official);
 
   if(!allPlayed){
     console.log("Aún no terminan los grupos");
@@ -2039,7 +2039,7 @@ window.printResultados=async()=>{
   }
 
   // 🧠 Verificar si ya se generaron
-  const existingR32 = allMatches.filter(m=>m.phase==="R32");
+  const existingR32 = allmatches.filter(m=>m.phase==="R32");
   const alreadyFilled = existingR32.some(m => m.home !== "TBD");
 
   if(alreadyFilled){
@@ -2048,8 +2048,8 @@ window.printResultados=async()=>{
   }
 
   // 🚀 Generar equipos
-  const qualified = getQualifiedTeams(allMatches);
-  const matches = generateR32Matches(qualified);
+  const qualified = getQualifiedTeams(allmatches);
+  const matches = generateR32matches(qualified);
 
   for(let i=0;i<matches.length;i++){
     await updateDoc(doc(db,"matches",`R32_${i+1}`),{
