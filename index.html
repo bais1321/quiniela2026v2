@@ -800,30 +800,42 @@ async function renderProbabilidades(main){
   }
 
   // Fases eliminatorias si están desbloqueadas
-  const elimPhases=[
-    { key: "R32", label: "Dieciseisavos (R32)" },
-    {key:"r16",label:"Octavos de Final"},
-    {key:"qf",label:"Cuartos de Final"},
-    {key:"sf",label:"Semifinales"},
-    {key:"tf",label:"Tercer Lugar"},
-    {key:"final",label:"Final"}
+  const elimPhases = [
+    { key: "R32",   label: "Dieciseisavos (R32)" },
+    { key: "R16",   label: "Octavos de Final" },
+    { key: "QF",    label: "Cuartos de Final" },
+    { key: "SF",    label: "Semifinales" },
+    { key: "TF",    label: "Tercer Lugar" },
+    { key: "FINAL", label: "Final" }
   ];
-  const phases=siteSettings.phases||{};
-  elimPhases.forEach(ph=>{
-    if(!phases[ph.key]) return;
-    const pm=matches.filter(m=>m.phase===ph.key);
-    if(!pm.length) return;
-    html+=`<div class="card"><div class="card-title">${ph.label}</div>`;
-    pm.forEach(m=>{
-      const s=matchStats[m.id]||{home:0,draw:0,away:0,scores:{},total:0};
-      const tot=s.total||1;
-      const homePct=Math.round(s.home/tot*100);
-      const drawPct=Math.round(s.draw/tot*100);
-      const awayPct=Math.round(s.away/tot*100);
-      const topScores=Object.entries(s.scores).sort((a,b)=>b[1]-a[1]).slice(0,3);
-      html+=`<div class="prob-match">
+
+  const phases = siteSettings.phases || {};
+
+  elimPhases.forEach(ph => {
+    // 1. Verificamos si la fase está activa (buscando en mayúsculas o minúsculas)
+    if (!phases[ph.key] && !phases[ph.key.toLowerCase()]) return;
+
+    // 2. ESTA ES LA ÚNICA LÍNEA QUE DEBE EXISTIR PARA FILTRAR:
+    // Compara el partido con la fase ignorando si es r16 o R16
+    const pm = matches.filter(m => 
+      m.phase && ph.key && m.phase.toUpperCase() === ph.key.toUpperCase()
+    );
+
+    if (!pm.length) return;
+
+    // De aquí para abajo el código sigue igual...
+    html += `<div class="card"><div class="card-title">${ph.label}</div>`;
+    pm.forEach(m => {
+      const s = matchStats[m.id] || { home: 0, draw: 0, away: 0, scores: {}, total: 0 };
+      const tot = s.total || 1;
+      const homePct = Math.round(s.home / tot * 100);
+      const drawPct = Math.round(s.draw / tot * 100);
+      const awayPct = Math.round(s.away / tot * 100);
+      const topScores = Object.entries(s.scores).sort((a, b) => b[1] - a[1]).slice(0, 3);
+
+      html += `<div class="prob-match">
         <div class="prob-teams">${f(m.home)} ${m.home} vs ${m.away} ${f(m.away)}</div>
-        <div class="prob-date">${m.label||""} — ${s.total} pronósticos</div>
+        <div class="prob-date">${m.label || ""} — ${s.total} pronósticos</div>
         <div class="prob-bars">
           <div class="prob-bar-wrap">
             <div class="prob-label">${m.home}</div>
@@ -841,18 +853,14 @@ async function renderProbabilidades(main){
             <div class="prob-pct">${awayPct}%</div>
           </div>
         </div>
-        ${topScores.length>0?`<div class="prob-scores">
+        ${topScores.length > 0 ? `<div class="prob-scores">
           <span style="color:var(--muted);font-size:.75rem">Marcadores más populares:</span>
-          ${topScores.map(([sc,cnt])=>`<span class="prob-score-tag">${sc} <span>(${cnt})</span></span>`).join("")}
-        </div>`:""}
+          ${topScores.map(([sc, cnt]) => `<span class="prob-score-tag">${sc} <span>(${cnt})</span></span>`).join("")}
+        </div>` : ""}
       </div>`;
     });
-    html+=`</div>`;
+    html += `</div>`;
   });
-
-  html+=`</div>`;
-  main.innerHTML=html;
-}
 
 // ── Notificaciones en tiempo real ────────────────────────────────
 function startNotifListener(){
