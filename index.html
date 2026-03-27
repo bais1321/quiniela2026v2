@@ -800,7 +800,7 @@ async function renderProbabilidades(main){
   }
 
   // Fases eliminatorias si están desbloqueadas
-  const elimPhases = [
+ const elimPhases = [
     { key: "R32",   label: "Dieciseisavos (R32)" },
     { key: "R16",   label: "Octavos de Final" },
     { key: "QF",    label: "Cuartos de Final" },
@@ -812,19 +812,18 @@ async function renderProbabilidades(main){
   const phases = siteSettings.phases || {};
 
   elimPhases.forEach(ph => {
-    // 1. Verificamos si la fase está activa (buscando en mayúsculas o minúsculas)
+    // 1. Verificamos si la fase está activa en la configuración
     if (!phases[ph.key] && !phases[ph.key.toLowerCase()]) return;
 
-    // 2. ESTA ES LA ÚNICA LÍNEA QUE DEBE EXISTIR PARA FILTRAR:
-    // Compara el partido con la fase ignorando si es r16 o R16
+    // 2. Filtro inteligente: compara ignorando mayúsculas/minúsculas
     const pm = matches.filter(m => 
       m.phase && ph.key && m.phase.toUpperCase() === ph.key.toUpperCase()
     );
 
     if (!pm.length) return;
 
-    // De aquí para abajo el código sigue igual...
     html += `<div class="card"><div class="card-title">${ph.label}</div>`;
+
     pm.forEach(m => {
       const s = matchStats[m.id] || { home: 0, draw: 0, away: 0, scores: {}, total: 0 };
       const tot = s.total || 1;
@@ -858,10 +857,14 @@ async function renderProbabilidades(main){
           ${topScores.map(([sc, cnt]) => `<span class="prob-score-tag">${sc} <span>(${cnt})</span></span>`).join("")}
         </div>` : ""}
       </div>`;
-    });
-    html += `</div>`;
-  });
+    }); // Cierra pm.forEach
 
+    html += `</div>`; // Cierra la card de la fase
+  }); // Cierra elimPhases.forEach
+
+  html += `</div>`; // Cierra el contenedor general
+  main.innerHTML = html; 
+} // Cierra la función principal
 // ── Notificaciones en tiempo real ────────────────────────────────
 function startNotifListener(){
   if(notifListener){notifListener();notifListener=null;}
