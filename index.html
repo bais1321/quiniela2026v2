@@ -936,50 +936,47 @@ window.removePhotoHome=async(i)=>{
 async function renderPronos(main) {
     console.log("ENTRÓ A PRONOS");
 
-    if (isAdmin || isAdmin2) {
-        main.innerHTML = `<div class="page-wrap"><div class="card center-card">
-            <div style="font-size:3rem">🚫</div>
-            <h3>Los administradores no pueden llenar pronósticos</h3>
-        </div></div>`;
-        return;
-    }
-
-    main.innerHTML = `<div class="page-wrap"><div class="loading-spin"></div></div>`;
-
-    console.log("ANTES DE FIREBASE");
+    // 1. Pantalla de carga única
+    main.innerHTML = `<div class="page-wrap"><div class="loading-spin"></div><p style="text-align:center; color:white;">Cargando...</p></div>`;
 
     try {
-        // 1. Obtener partidos (Carga inicial)
-        const matchSnap = await getDocs(collection(db, "matches"));
-        allMatches = matchSnap.docs.map(d => ({ ...d.data(), id: d.id }));
-
-        // 2. Generar 16vos (R32) y Recarga Crítica
+        // 2. Intentar generar R32 (Solo una vez)
         try {
-            console.log("Generando R32...");
-            await autoGenerateR32();
-            
-            // Recargamos para que la variable allMatches tenga los nuevos partidos
-            const updatedSnap = await getDocs(collection(db, "matches"));
-            allMatches = updatedSnap.docs.map(d => ({ ...d.data(), id: d.id }));
-            console.log("MATCHES ACTUALIZADOS:", allMatches.length);
-        } catch (e) {
-            console.error("ERROR EN AUTO R32:", e);
+            await autoGenerateR32(); 
+        } catch(e) { 
+            console.log("Aviso: No se generaron nuevos R32 (faltan resultados o permisos):", e); 
         }
 
-        // 3. Obtener predicciones y Renderizar
+        // 3. Carga de partidos (Ya con los nuevos R32 si es que se crearon)
+        const matchSnap = await getDocs(collection(db, "matches"));
+        allMatches = matchSnap.docs.map(d => ({ ...d.data(), id: d.id }));
+        console.log("Partidos totales en sistema:", allMatches.length);
+
+        // 4. Bloqueo para Admins (Tú solo generas, no juegas)
+        if (isAdmin || isAdmin2) {
+            main.innerHTML = `
+                <div class="page-wrap">
+                    <div class="card center-card">
+                        <div style="font-size:3rem">⚙️</div>
+                        <h3>Modo Administrador</h3>
+                        <p>Los Dieciseisavos de Final han sido procesados.</p>
+                        <p>Total partidos en base de datos: <b>${allMatches.length}</b></p>
+                        <button class="btn-block" onclick="location.reload()">Actualizar Vista</button>
+                    </div>
+                </div>`;
+            return; 
+        }
+
+        // 5. Lógica para usuarios (Obtener predicciones)
         const predSnap = await getDoc(doc(db, "predictions", currentUser.uid));
         const myPreds = predSnap.exists() ? predSnap.data().preds || {} : {};
 
-        console.log("RENDERIZANDO FASES...");
+        // 6. Mostrar el selector de fases
         renderPhaseSelector(main, myPreds);
 
     } catch (err) {
-        // ESTO ES LO QUE PREGUNTABAS: Sí es necesario para manejar errores graves
-        console.error("Error general en renderPronos:", err);
-        main.innerHTML = `<div class="card">
-            <p>Error al cargar la quiniela. Revisa tu conexión.</p>
-            <button onclick="location.reload()">Reintentar</button>
-        </div>`;
+        console.error("Error crítico en renderPronos:", err);
+        main.innerHTML = `<div class="card"><p>Error al cargar: ${err.message}</p></div>`;
     }
 }
 function renderPhaseSelector(main,myPreds){
