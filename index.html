@@ -16,16 +16,7 @@
     import { getFirestore, doc, setDoc, getDoc, collection, query, orderBy, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
     import { Filesystem, Directory } from 'https://cdn.jsdelivr.net/npm/@capacitor/filesystem@6.0.0/+esm';
 
-    // 2. CONFIGURACIÓN (REEMPLAZA ESTO CON TUS DATOS REALES)
-    const firebaseConfig = {
-        apiKey: "PON_AQUI_TU_API_KEY",
-        authDomain: "tu-proyecto.firebaseapp.com",
-        projectId: "tu-proyecto",
-        storageBucket: "tu-proyecto.appspot.com",
-        messagingSenderId: "123456789",
-        appId: "1:123456789:web:abcdef123456"
-    };
-
+  
     // 3. INICIALIZACIÓN
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
