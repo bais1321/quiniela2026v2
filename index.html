@@ -10,11 +10,38 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 
 <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged }
-  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import { getFirestore, doc, setDoc, getDoc, getDocs, updateDoc, deleteDoc, collection, serverTimestamp, onSnapshot, query, orderBy }
-  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    // 1. PRIMERO: Todos los IMPORTS (Firebase y Capacitor)
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    // ... tus otros imports de Firebase ...
+    import { Filesystem, Directory } from 'https://cdn.jsdelivr.net/npm/@capacitor/filesystem@6.0.0/+esm';
+
+    // 2. SEGUNDO: La configuración de Firebase (Firebase Config)
+    const firebaseConfig = {
+        // ... tus llaves de API ...
+    };
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    // ... etc ...
+
+    // 3. TERCERO: PEGA AQUÍ LA FUNCIÓN QUE ME PASASTE
+    const guardarPDFEnCelular = async (base64Data) => {
+        try {
+            const fileName = `Quiniela_2026_${Date.now()}.pdf`;
+            await Filesystem.writeFile({
+                path: fileName,
+                data: base64Data,
+                directory: Directory.Documents,
+                recursive: true
+            });
+            alert("¡Éxito! El archivo se guardó en tu carpeta de 'Documentos' como: " + fileName);
+        } catch (e) {
+            console.error("Error al guardar:", e);
+            alert("Error de permisos o de sistema: " + e.message);
+        }
+    };
+
+    // Esto es muy importante para que tus otros botones lo puedan "ver"
+    window.guardarPDFEnCelular = guardarPDFEnCelular; 
 
 // ═══════════════════════════════════════
 //  🔧 CONFIGURACIÓN — Reemplaza con tus credenciales del NUEVO proyecto Firebase
