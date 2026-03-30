@@ -10,26 +10,28 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 
 <script type="module">
-    // 1. LOS IMPORTS (Solo una vez)
+    // 1. IMPORTS (Sin puntos suspensivos)
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import { getFirestore, ... } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+    import { getFirestore, doc, setDoc, getDoc, collection, query, orderBy, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
     import { Filesystem, Directory } from 'https://cdn.jsdelivr.net/npm/@capacitor/filesystem@6.0.0/+esm';
 
-    // 2. LA CONFIGURACIÓN (REVISA QUE NO ESTÉ REPETIDA)
+    // 2. CONFIGURACIÓN (REEMPLAZA ESTO CON TUS DATOS REALES)
     const firebaseConfig = {
-        apiKey: "TU_API_KEY",
-        authDomain: "tu-app.firebaseapp.com",
-        projectId: "tu-app",
-        storageBucket: "tu-app.appspot.com",
-        messagingSenderId: "12345",
-        appId: "1:12345:web:6789"
+        apiKey: "PON_AQUI_TU_API_KEY",
+        authDomain: "tu-proyecto.firebaseapp.com",
+        projectId: "tu-proyecto",
+        storageBucket: "tu-proyecto.appspot.com",
+        messagingSenderId: "123456789",
+        appId: "1:123456789:web:abcdef123456"
     };
 
-    // 3. INICIALIZACIÓN (Solo una vez)
+    // 3. INICIALIZACIÓN
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
+    const auth = getAuth(app);
 
-    // 4. LA FUNCIÓN DEL PDF (Aquí no hay problema con repetirla si no estaba antes)
+    // 4. FUNCIÓN PARA EL PDF
     const guardarPDFEnCelular = async (base64Data) => {
         try {
             const fileName = `Quiniela_2026_${Date.now()}.pdf`;
@@ -41,7 +43,8 @@
             });
             alert("¡Éxito! Guardado en Documentos.");
         } catch (e) {
-            alert("Error: " + e.message);
+            console.error("Error:", e);
+            alert("Error al guardar: " + e.message);
         }
     };
 
