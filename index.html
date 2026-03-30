@@ -10,20 +10,26 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 
 <script type="module">
-    // 1. PRIMERO: Todos los IMPORTS (Firebase y Capacitor)
+    // 1. LOS IMPORTS (Solo una vez)
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    // ... tus otros imports de Firebase ...
+    import { getFirestore, ... } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
     import { Filesystem, Directory } from 'https://cdn.jsdelivr.net/npm/@capacitor/filesystem@6.0.0/+esm';
 
-    // 2. SEGUNDO: La configuración de Firebase (Firebase Config)
+    // 2. LA CONFIGURACIÓN (REVISA QUE NO ESTÉ REPETIDA)
     const firebaseConfig = {
-        // ... tus llaves de API ...
+        apiKey: "TU_API_KEY",
+        authDomain: "tu-app.firebaseapp.com",
+        projectId: "tu-app",
+        storageBucket: "tu-app.appspot.com",
+        messagingSenderId: "12345",
+        appId: "1:12345:web:6789"
     };
+
+    // 3. INICIALIZACIÓN (Solo una vez)
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
-    // ... etc ...
 
-    // 3. TERCERO: PEGA AQUÍ LA FUNCIÓN QUE ME PASASTE
+    // 4. LA FUNCIÓN DEL PDF (Aquí no hay problema con repetirla si no estaba antes)
     const guardarPDFEnCelular = async (base64Data) => {
         try {
             const fileName = `Quiniela_2026_${Date.now()}.pdf`;
@@ -33,15 +39,13 @@
                 directory: Directory.Documents,
                 recursive: true
             });
-            alert("¡Éxito! El archivo se guardó en tu carpeta de 'Documentos' como: " + fileName);
+            alert("¡Éxito! Guardado en Documentos.");
         } catch (e) {
-            console.error("Error al guardar:", e);
-            alert("Error de permisos o de sistema: " + e.message);
+            alert("Error: " + e.message);
         }
     };
 
-    // Esto es muy importante para que tus otros botones lo puedan "ver"
-    window.guardarPDFEnCelular = guardarPDFEnCelular; 
+    window.guardarPDFEnCelular = guardarPDFEnCelular;
 
 // ═══════════════════════════════════════
 //  🔧 CONFIGURACIÓN — Reemplaza con tus credenciales del NUEVO proyecto Firebase
