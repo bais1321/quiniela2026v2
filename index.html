@@ -27,23 +27,36 @@
 
     // 2. FUNCIÓN PARA EL PDF (Limpia)
     const guardarPDFEnCelular = async (base64Data) => {
-        try {
-            const fileName = `Quiniela_2026_${Date.now()}.pdf`;
-            await Filesystem.writeFile({
-                path: fileName,
-                data: base64Data,
-                directory: Directory.Documents,
-                recursive: true
-            });
-            alert("¡Éxito! El archivo se guardó en 'Documentos' como: " + fileName);
-        } catch (e) {
-            console.error("Error al guardar:", e);
-            alert("Error de permisos o de sistema: " + e.message);
-        }
-    };
+    try {
+        // 1. LIMPIEZA CRÍTICA: Quitamos el encabezado si existe
+        // Si el dato trae "base64,", nos quedamos solo con lo que está después de la coma
+        const base64Limpio = base64Data.includes('base64,') 
+                            ? base64Data.split('base64,')[1] 
+                            : base64Data;
 
-    // Hacer funciones visibles para los botones del HTML
-    window.guardarPDFEnCelular = guardarPDFEnCelular;
+        const fileName = `Quiniela_2026_${Date.now()}.pdf`;
+
+        // 2. ESCRITURA EN EL TELÉFONO
+        await Filesystem.writeFile({
+            path: fileName,
+            data: base64Limpio, // Usamos el dato limpio
+            directory: Directory.Documents,
+            recursive: true
+        });
+
+        // 3. AVISO DE ÉXITO
+        alert("¡PDF GUARDADO! Búscalo en la carpeta 'Documentos' de tu Samsung como: " + fileName);
+        console.log("Archivo creado con éxito en Documents");
+
+    } catch (e) {
+        console.error("Error al guardar:", e);
+        // Si falla aquí, es por PERMISOS del AndroidManifest
+        alert("Error de permisos: Asegúrate de haber aceptado los permisos en el celular. " + e.message);
+    }
+};
+
+// Muy importante mantener esto para que el botón lo encuentre
+window.guardarPDFEnCelular = guardarPDFEnCelular;
     
 //  🔧 CONFIGURACIÓN — Reemplaza con tus credenciales del NUEVO proyecto Firebase
 // ═══════════════════════════════════════
