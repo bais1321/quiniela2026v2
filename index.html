@@ -26,37 +26,27 @@
     import { Filesystem, Directory } from 'https://cdn.jsdelivr.net/npm/@capacitor/filesystem@6.0.0/+esm';
 
     // 2. FUNCIÓN PARA EL PDF (Limpia)
-    const guardarPDFEnCelular = async (base64Data) => {
+   const descargarTablaPDF = async () => {
     try {
-        // 1. LIMPIEZA CRÍTICA: Quitamos el encabezado si existe
-        // Si el dato trae "base64,", nos quedamos solo con lo que está después de la coma
-        const base64Limpio = base64Data.includes('base64,') 
-                            ? base64Data.split('base64,')[1] 
-                            : base64Data;
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
 
-        const fileName = `Quiniela_2026_${Date.now()}.pdf`;
+        // FORZAMOS UN TEXTO QUE NO DEPENDA DE LA TABLA
+        doc.setFontSize(20);
+        doc.text("PRUEBA DE SUPERVIVENCIA PDF", 10, 20);
+        doc.text("Si ves esto, el sistema de guardado funciona.", 10, 40);
+        doc.text("Fecha: " + new Date().toLocaleString(), 10, 60);
 
-        // 2. ESCRITURA EN EL TELÉFONO
-        await Filesystem.writeFile({
-            path: fileName,
-            data: base64Limpio, // Usamos el dato limpio
-            directory: Directory.Documents,
-            recursive: true
-        });
+        const pdfDataUri = doc.output('datauristring');
+        const base64Limpio = pdfDataUri.split(',')[1]; 
 
-        // 3. AVISO DE ÉXITO
-        alert("¡PDF GUARDADO! Búscalo en la carpeta 'Documentos' de tu Samsung como: " + fileName);
-        console.log("Archivo creado con éxito en Documents");
+        // Llamamos a tu función de guardado
+        window.guardarPDFEnCelular(base64Limpio);
 
-    } catch (e) {
-        console.error("Error al guardar:", e);
-        // Si falla aquí, es por PERMISOS del AndroidManifest
-        alert("Error de permisos: Asegúrate de haber aceptado los permisos en el celular. " + e.message);
+    } catch (error) {
+        alert("Error en generador: " + error.message);
     }
 };
-
-// Muy importante mantener esto para que el botón lo encuentre
-window.guardarPDFEnCelular = guardarPDFEnCelular;
     
 //  🔧 CONFIGURACIÓN — Reemplaza con tus credenciales del NUEVO proyecto Firebase
 // ═══════════════════════════════════════
