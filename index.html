@@ -26,27 +26,46 @@
     import { Filesystem, Directory } from 'https://cdn.jsdelivr.net/npm/@capacitor/filesystem@6.0.0/+esm';
 
     // 2. FUNCIÓN PARA EL PDF (Limpia)
-   const descargarTablaPDF = async () => {
+const { Filesystem, Directory } = Capacitor; // Asegúrate de que esto esté arriba
+
+const guardarPDFEnCelular = async (base64Data) => {
     try {
-        const { jsPDF } = window.jspdf;
-        const doc = new jsPDF();
+        // --- PASO A: SOLICITAR PERMISOS ACTIVAMENTE ---
+        const status = await Filesystem.checkPermissions();
+        
+        // Si no tenemos permiso, lo pedimos ahora mismo
+        if (status.publicStorage !== 'granted') {
+            const request = await Filesystem.requestPermissions();
+            if (request.publicStorage !== 'granted') {
+                alert("Sin permiso de almacenamiento no puedo guardar el PDF. Por favor, acéptalo en Ajustes.");
+                return; 
+            }
+        }
 
-        // FORZAMOS UN TEXTO QUE NO DEPENDA DE LA TABLA
-        doc.setFontSize(20);
-        doc.text("PRUEBA DE SUPERVIVENCIA PDF", 10, 20);
-        doc.text("Si ves esto, el sistema de guardado funciona.", 10, 40);
-        doc.text("Fecha: " + new Date().toLocaleString(), 10, 60);
+        // --- PASO B: LIMPIAR EL DATO ---
+        const base64Limpio = base64Data.includes('base64,') 
+                            ? base64Data.split('base64,')[1] 
+                            : base64Data;
 
-        const pdfDataUri = doc.output('datauristring');
-        const base64Limpio = pdfDataUri.split(',')[1]; 
+        const fileName = `Quiniela_2026_${Date.now()}.pdf`;
 
-        // Llamamos a tu función de guardado
-        window.guardarPDFEnCelular(base64Limpio);
+        // --- PASO C: ESCRIBIR EL ARCHIVO ---
+        await Filesystem.writeFile({
+            path: fileName,
+            data: base64Limpio,
+            directory: Directory.Documents,
+            recursive: true
+        });
 
-    } catch (error) {
-        alert("Error en generador: " + error.message);
+        alert("¡ÉXITO! PDF guardado en la carpeta 'Documentos'. Nombre: " + fileName);
+
+    } catch (e) {
+        console.error("Error total:", e);
+        alert("Error de sistema: " + e.message);
     }
 };
+
+window.guardarPDFEnCelular = guardarPDFEnCelular;
     
 //  🔧 CONFIGURACIÓN — Reemplaza con tus credenciales del NUEVO proyecto Firebase
 // ═══════════════════════════════════════
