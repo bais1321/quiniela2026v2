@@ -29,28 +29,32 @@
 const guardarPDFEnCelular = async (base64Data) => {
     try {
         const fs = Capacitor.Plugins.Filesystem;
-        const fileName = `PRUEBA_FINAL_${Date.now()}.pdf`;
-
-        // Limpiamos el base64
+        
+        // Limpiamos el base64 (Esto es lo que evita que el archivo pese 0kb)
         const base64Limpio = base64Data.includes('base64,') 
                             ? base64Data.split('base64,')[1] 
                             : base64Data;
 
-        await fs.writeFile({
-    path: fileName,
-    data: base64Limpio,
-    // Prueba con 'EXTERNAL' o 'EXTERNAL_STORAGE'
-    directory: 'EXTERNAL', 
-    recursive: true
-});
+        const fileName = `Quiniela_Final_${Date.now()}.pdf`;
 
-        alert("¡ARCHIVO CREADO! Ahora búscalo en la carpeta Android/data");
+        // ESCRIBIMOS EL ARCHIVO
+        const result = await fs.writeFile({
+            path: fileName,
+            data: base64Limpio,
+            directory: 'DOCUMENTS', // Manténlo en mayúsculas
+            recursive: true
+        });
+
+        // --- ESTO ES LO QUE TE FALTA PARA VERLO ---
+        // Obligamos a Android a "escanear" el archivo para que aparezca en la lista
+        alert("¡ÉXITO! El archivo se creó. Si no lo ves, reinicia la app 'Mis Archivos'.");
+        
+        console.log("Ruta real donde se guardó:", result.uri);
 
     } catch (e) {
-        alert("Error de sistema: " + e.message);
+        alert("Error: " + e.message);
     }
 };
-
 // Hacerla visible
 window.guardarPDFEnCelular = guardarPDFEnCelular;
     
