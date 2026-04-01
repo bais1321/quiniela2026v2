@@ -37,10 +37,12 @@ const guardarPDFEnCelular = async (base64Data) => {
                             : base64Data;
 
         await fs.writeFile({
-            path: fileName,
-            data: base64Limpio,
-            directory: 'DATA', // Cambiamos a DATA para forzar escritura interna
-            recursive: true
+    path: fileName,
+    data: base64Limpio,
+    // Prueba con 'EXTERNAL' o 'EXTERNAL_STORAGE'
+    directory: 'EXTERNAL', 
+    recursive: true
+});
         });
 
         alert("¡ARCHIVO CREADO! Ahora búscalo en la carpeta Android/data");
