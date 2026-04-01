@@ -28,40 +28,24 @@
     // 2. FUNCIÓN PARA EL PDF (Limpia)
 const guardarPDFEnCelular = async (base64Data) => {
     try {
-        // En lugar de crear una constante, usamos Capacitor.Plugins directamente
-        const fs = Capacitor.Plugins.Filesystem; 
-        const dir = "DOCUMENTS"; // O Directory.Documents si Capacitor ya está listo
+        const fs = Capacitor.Plugins.Filesystem;
+        const fileName = `PRUEBA_FINAL_${Date.now()}.pdf`;
 
-        // 1. SOLICITAR PERMISOS
-        const status = await fs.checkPermissions();
-        
-        if (status.publicStorage !== 'granted') {
-            const request = await fs.requestPermissions();
-            if (request.publicStorage !== 'granted') {
-                alert("Sin permiso de archivos no puedo guardar.");
-                return;
-            }
-        }
-
-        // 2. LIMPIAR EL DATO
+        // Limpiamos el base64
         const base64Limpio = base64Data.includes('base64,') 
                             ? base64Data.split('base64,')[1] 
                             : base64Data;
 
-        const fileName = `Quiniela_2026_${Date.now()}.pdf`;
-
-        // 3. ESCRIBIR EL ARCHIVO
         await fs.writeFile({
             path: fileName,
             data: base64Limpio,
-            directory: dir,
+            directory: 'DATA', // Cambiamos a DATA para forzar escritura interna
             recursive: true
         });
 
-        alert("¡ÉXITO! PDF guardado en Documentos como: " + fileName);
+        alert("¡ARCHIVO CREADO! Ahora búscalo en la carpeta Android/data");
 
     } catch (e) {
-        console.error("Error al guardar:", e);
         alert("Error de sistema: " + e.message);
     }
 };
