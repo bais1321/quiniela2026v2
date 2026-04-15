@@ -1852,109 +1852,121 @@ const Views = {
     }
   },
   
-  // ═════════════════════════════════════════════════════════════════
-  //  VISTA: ADMIN
-  // ═════════════════════════════════════════════════════════════════
-  Admin: {
-    async render() {
-      const state = Views.state;
-      const main = Views.main;
-      
-      if (!state.isAdmin) {
-        main.innerHTML = `<div class="page-wrap"><p>Acceso denegado.</p></div>`;
-        return;
-      }
-      
-      main.innerHTML = `<div class="page-wrap"><div class="loading-spin"></div></div>`;
-      
-      const users = await FirebaseService.getAllUsers();
-      const codesSnap = await FirebaseService.db.collection("accessCodes").get();
-      const codes = [];
-      codesSnap.forEach(d => codes.push({ id: d.id, ...d.data() }));
-      
-      const free = codes.filter(c => !c.used).length;
-      const used = codes.filter(c => c.used).length;
-      
-      main.innerHTML = `
-      <div class="page-wrap admin-v2">
-        <h2 class="page-title">⚙️ Admin</h2>
-        
-        <div class="acard">
-          <h3>🎨 Configuración del Sitio</h3>
-          <label>Color de fondo</label>
-          <input type="color" id="cfg-bg" value="${state.siteSettings.bg || '#0b1612'}" class="inp color-inp">
-          <label>Imagen de fondo (URL)</label>
-          <input type="url" id="cfg-bgi" value="${state.siteSettings.bgImage || ''}" placeholder="https://..." class="inp">
-          <label>Enlace WhatsApp</label>
-          <input type="url" id="cfg-wa" value="${state.siteSettings.whatsappLink || ''}" placeholder="https://wa.me/..." class="inp">
-          <button class="btn-main" onclick="Views.Admin.saveConfig()">💾 Guardar configuración</button>
-        </div>
-        
-        <div class="acard">
-          <h3>🔑 Códigos de Acceso</h3>
-          <div class="codes-stats-v2">
-            <div class="csv2"><span>${codes.length}</span>Total</div>
-            <div class="csv2 csv2-ok"><span>${free}</span>Disponibles</div>
-            <div class="csv2 csv2-used"><span>${used}</span>Usados</div>
-          </div>
-          <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.75rem">
-            <button class="btn-sm" onclick="Views.Admin.genCodes(100)">🎲 Generar 100</button>
-            <button class="btn-sm btn-danger" onclick="Views.Admin.clearUsed()">🗑 Limpiar usados</button>
-          </div>
-        </div>
-        
-        <div class="acard">
-          <h3>👥 Participantes (${users.filter(u => u.email !== CONFIG.ADMIN_EMAIL && u.email !== CONFIG.ADMIN2_EMAIL).length})</h3>
-          <div class="users-v2">
-            ${users.filter(u => u.email !== CONFIG.ADMIN_EMAIL && u.email !== CONFIG.ADMIN2_EMAIL).map(u => `
-            <div class="user-row-v2">
-              <div class="ur-info">
-                <div class="ur-name">${u.displayName || u.name || '—'}</div>
-                <div class="ur-contact">${u.phone || u.email}</div>
-                <div class="ur-meta">
-                  <span class="tag ${u.paid ? 'tag-ok' : 'tag-no'}">${u.paid ? '✅ Pagó' : '❌ Pendiente'}</span>
-                </div>
-              </div>
-              <div class="ur-actions">
-                <button onclick="Views.Admin.togglePaid('${u.uid}', ${!u.paid})" class="btn-xs ${u.paid ? 'btn-warn' : 'btn-ok'}">
-                  ${u.paid ? '💰' : '💳'}
-                </button>
-              </div>
-            </div>`).join('')}
-          </div>
-        </div>
-      </div>`;
-    },
+// ═════════════════════════════════════════════════════════════════
+//  VISTA: ADMIN
+// ═════════════════════════════════════════════════════════════════
+Admin: {
+  async render() {
+    const state = Views.state;
+    const main = Views.main;
     
-    async saveConfig() {
-      const settings = Views.state.siteSettings;
-      settings.bg = document.getElementById("cfg-bg").value;
-      settings.bgImage = document.getElementById("cfg-bgi").value.trim();
-      settings.whatsappLink = document.getElementById("cfg-wa").value.trim();
-      
-      await FirebaseService.saveSettings(settings);
-      Views.MainLayout.applyBg();
-      Utils.showToast("✅ Configuración guardada", "success");
-    },
-    
-    async genCodes(count) {
-      if (!confirm(`¿Generar ${count} códigos?`)) return;
-      await FirebaseService.generateAccessCodes(count);
-      Utils.showToast(`✅ Códigos generados`, "success");
-      Router.navigate('admin');
-    },
-    
-    async clearUsed() {
-      if (!confirm("¿Eliminar códigos usados?")) return;
-      // Implementar limpieza
-      Utils.showToast("✅ Códigos limpiados", "success");
-    },
-    
-    async togglePaid(uid, state) {
-      await FirebaseService.updateUser(uid, { paid: state, verified: state });
-      Router.navigate('admin');
+    if (!state.isAdmin) {
+      main.innerHTML = `<div class="page-wrap"><p>Acceso denegado.</p></div>`;
+      return;
     }
+    
+    main.innerHTML = `<div class="page-wrap"><div class="loading-spin"></div></div>`;
+    
+    const users = await FirebaseService.getAllUsers();
+    
+    // CORRECCIÓN: Usar getDocs y collection correctamente con Firebase v9+
+    const codesSnap = await getDocs(collection(FirebaseService.db, "accessCodes"));
+    const codes = [];
+    codesSnap.forEach(d => codes.push({ id: d.id, ...d.data() }));
+    
+    const free = codes.filter(c => !c.used).length;
+    const used = codes.filter(c => c.used).length;
+    
+    main.innerHTML = `
+    <div class="page-wrap admin-v2">
+      <h2 class="page-title">⚙️ Admin</h2>
+      
+      <div class="acard">
+        <h3>🎨 Configuración del Sitio</h3>
+        <label>Color de fondo</label>
+        <input type="color" id="cfg-bg" value="${state.siteSettings.bg || '#0b1612'}" class="inp color-inp">
+        <label>Imagen de fondo (URL)</label>
+        <input type="url" id="cfg-bgi" value="${state.siteSettings.bgImage || ''}" placeholder="https://..." class="inp">
+        <label>Enlace WhatsApp</label>
+        <input type="url" id="cfg-wa" value="${state.siteSettings.whatsappLink || ''}" placeholder="https://wa.me/..." class="inp">
+        <button class="btn-main" onclick="Views.Admin.saveConfig()">💾 Guardar configuración</button>
+      </div>
+      
+      <div class="acard">
+        <h3>🔑 Códigos de Acceso</h3>
+        <div class="codes-stats-v2">
+          <div class="csv2"><span>${codes.length}</span>Total</div>
+          <div class="csv2 csv2-ok"><span>${free}</span>Disponibles</div>
+          <div class="csv2 csv2-used"><span>${used}</span>Usados</div>
+        </div>
+        <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.75rem">
+          <button class="btn-sm" onclick="Views.Admin.genCodes(100)">🎲 Generar 100</button>
+          <button class="btn-sm btn-danger" onclick="Views.Admin.clearUsed()">🗑 Limpiar usados</button>
+        </div>
+      </div>
+      
+      <div class="acard">
+        <h3>👥 Participantes (${users.filter(u => u.email !== CONFIG.ADMIN_EMAIL && u.email !== CONFIG.ADMIN2_EMAIL).length})</h3>
+        <div class="users-v2">
+          ${users.filter(u => u.email !== CONFIG.ADMIN_EMAIL && u.email !== CONFIG.ADMIN2_EMAIL).map(u => `
+          <div class="user-row-v2">
+            <div class="ur-info">
+              <div class="ur-name">${u.displayName || u.name || '—'}</div>
+              <div class="ur-contact">${u.phone || u.email}</div>
+              <div class="ur-meta">
+                <span class="tag ${u.paid ? 'tag-ok' : 'tag-no'}">${u.paid ? '✅ Pagó' : '❌ Pendiente'}</span>
+              </div>
+            </div>
+            <div class="ur-actions">
+              <button onclick="Views.Admin.togglePaid('${u.uid}', ${!u.paid})" class="btn-xs ${u.paid ? 'btn-warn' : 'btn-ok'}">
+                ${u.paid ? '💰' : '💳'}
+              </button>
+            </div>
+          </div>`).join('')}
+        </div>
+      </div>
+    </div>`;
   },
+  
+  async saveConfig() {
+    const settings = Views.state.siteSettings;
+    settings.bg = document.getElementById("cfg-bg").value;
+    settings.bgImage = document.getElementById("cfg-bgi").value.trim();
+    settings.whatsappLink = document.getElementById("cfg-wa").value.trim();
+    
+    await FirebaseService.saveSettings(settings);
+    Views.MainLayout.applyBg();
+    Utils.showToast("✅ Configuración guardada", "success");
+  },
+  
+  async genCodes(count) {
+    if (!confirm(`¿Generar ${count} códigos?`)) return;
+    await FirebaseService.generateAccessCodes(count);
+    Utils.showToast(`✅ Códigos generados`, "success");
+    Router.navigate('admin');
+  },
+  
+  async clearUsed() {
+    if (!confirm("¿Eliminar códigos usados?")) return;
+    
+    // CORRECCIÓN: Usar getDocs, collection y deleteDoc correctamente
+    const snap = await getDocs(collection(FirebaseService.db, "accessCodes"));
+    let n = 0;
+    for (const d of snap.docs) {
+      if (d.data().used) {
+        await deleteDoc(doc(FirebaseService.db, "accessCodes", d.id));
+        n++;
+      }
+    }
+    Utils.showToast(`✅ ${n} códigos eliminados`, "success");
+    Router.navigate('admin');
+  },
+  
+  async togglePaid(uid, state) {
+    await FirebaseService.updateUser(uid, { paid: state, verified: state });
+    Router.navigate('admin');
+  }
+},
   
   // ═════════════════════════════════════════════════════════════════
   //  VISTA: ADMIN2
