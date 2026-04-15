@@ -1696,90 +1696,478 @@ const Views = {
     }
   },
   
-  // ═════════════════════════════════════════════════════════════════
-  //  VISTA: TABLA
-  // ═════════════════════════════════════════════════════════════════
-  Tabla: {
-    async render() {
-      const main = Views.main;
-      main.innerHTML = `<div class="page-wrap"><div class="loading-spin"></div></div>`;
+// ═════════════════════════════════════════════════════════════════
+//  VISTA: TABLA
+// ═════════════════════════════════════════════════════════════════
+Tabla: {
+  async render() {
+    const main = Views.main;
+    main.innerHTML = `<div class="page-wrap"><div class="loading-spin"></div></div>`;
+    
+    // Cargar datos necesarios
+    const matches = await FirebaseService.getMatches();
+    const users = await FirebaseService.getAllUsers();
+    
+    // Obtener predicciones
+    const predsSnap = await getDocs(collection(FirebaseService.db, "predictions"));
+    const predsMap = {};
+    predsSnap.forEach(d => {
+      predsMap[d.id] = d.data().preds || {};
+    });
+    
+    // Crear mapa de usuarios
+    const uMap = {};
+    users.forEach(u => {
+      uMap[u.uid] = u;
+    });
+    
+    // Separar partidos por fase
+    const groupMatches = matches.filter(m => m.phase === "groups" && m.published !== false);
+    const finalPhases = ["r32", "r16", "qf", "sf", "tf", "final"];
+    const finalMatches = matches.filter(m => finalPhases.includes(m.phase) && m.published === true);
+    
+    // Crear mapa de resultados oficiales
+    const offMap = {};
+    matches.forEach(m => {
+      if (m.official && m.official.home !== null && m.official.home !== undefined) {
+        offMap[m.id] = m.official;
+      }
+    });
+    
+    // Construir leaderboard de grupos
+    const lbGroups = this.buildLeaderboard(users, predsMap, uMap, groupMatches, false);
+    
+    // Construir leaderboard de finales
+    const lbFinal = this.buildLeaderboard(users, predsMap, uMap, finalMatches, true);
+    
+    // Guardar en estado para PDF
+    Views.state._lbGroups = lbGroups;
+    Views.state._lbFinal = lbFinal;
+    Views.state._groupMatches = groupMatches;
+    Views.state._finalMatches = finalMatches;
+    
+    main.innerHTML = `
+    <div class="tabla-wrap">
+      <div class="tabla-header">
+        <h2 class="page-title">📊 Tabla</h2>
+        <div class="tabla-legend">
+          <span><span class="dot dot-exact"></span> 3pts</span>
+          <span><span class="dot dot-winner"></span> 1pt</span>
+          <span><span class="dot dot-miss"></span> 0pts</span>
+          <span><span class="dot dot-pending"></span> Pend.</span>
+        </div>
+        <button class="btn-icon" onclick="Views.Tabla.printPDF()" title="Guardar PDF">💾</button>
+      </div>
+      <div class="tabla-tabs">
+        <button class="ttab active" id="ttab-grupos" onclick="Views.Tabla.switchTab('grupos')">⚽ Grupos</button>
+        <button class="ttab" id="ttab-finales" onclick="Views.Tabla.switchTab('finales')">🏆 Fases Finales</button>
+      </div>
+      <div id="tabla-content-grupos">
+        ${this.buildTableHTML(lbGroups, groupMatches, "⚽ Tabla de Grupos")}
+      </div>
+      <div id="tabla-content-finales" style="display:none">
+        ${finalMatches.length ? this.buildTableHTML(lbFinal, finalMatches, "🏆 Tabla de Fases Finales") : '<div class="card center-card" style="margin-top:1rem"><p style="color:var(--muted)">Aún no hay fases finales publicadas.</p></div>'}
+      </div>
+    </div>`;
+  },
+  
+  buildLeaderboard(users, predsMap, uMap, matches, useElim) {
+    const lb = [];
+    const finalPhaseKeys = ["r32", "r16", "qf", "sf", "tf", "final"];
+    
+    users.forEach(u => {
+      // Ignorar admins
+      if (u.email === CONFIG.ADMIN_EMAIL || u.email === CONFIG.ADMIN2_EMAIL) return;
       
-      const matches = await FirebaseService.getMatches();
-      const offMap = {};
+      const uid = u.uid;
+      const preds = predsMap[uid] || {};
+      let pts = 0, exact = 0;
+      
+      const circles = matches.map(m => {
+        const off = m.official;
+        const pred = preds[m.id];
+        
+        if (!off || off.home === null || off.home === undefined) return "pending";
+        if (!pred) return "none";
+        
+        const isElim = finalPhaseKeys.includes(m.phase);
+        const p = isElim ? Utils.calcPointsElim(pred, off) : Utils.calcPoints(pred, off);
+        
+        if (p === null) return "pending";
+        if (p >= 3) { pts += p; exact++; return "exact"; }
+        if (p === 2) { pts += 2; return "winner"; }
+        if (p === 1) { pts += 1; return "winner"; }
+        return "miss";
+      });
+      
+      lb.push({
+        uid,
+        name: u.displayName || u.name || uid,
+        pts,
+        exact,
+        circles
+      });
+    });
+    
+    return lb.sort((a, b) => b.pts - a.pts || b.exact - a.exact);
+  },
+  
+  buildTableHTML(lb, matches, title) {
+    if (!matches.length) {
+      return `<div class="card center-card"><p style="color:var(--muted)">No hay partidos disponibles.</p></div>`;
+    }
+    
+    const hdr = matches.map(m => {
+      const h = m.home.length > 5 ? m.home.substring(0, 4) + "…" : m.home;
+      const a = m.away.length > 5 ? m.away.substring(0, 4) + "…" : m.away;
+      return `<th><div class="rot-hdr">${h}-${a}</div></th>`;
+    }).join("");
+    
+    const rows = lb.map((r, i) => {
+      const cells = r.circles.map((c, idx) => 
+        `<td><span class="dot dot-${c}" title="${matches[idx] ? matches[idx].home + ' vs ' + matches[idx].away : ''}"></span></td>`
+      ).join("");
+      
+      return `<tr class="${i < 3 ? 'tr-top-' + i : ''}">
+        <td class="td-pos">${i + 1}</td>
+        <td class="td-name">${r.name}</td>
+        <td class="td-pts">${r.pts}</td>
+        ${cells}
+      </tr>`;
+    }).join("");
+    
+    return `
+    <div class="tabla-card">
+      <div class="tabla-card-title">${title}</div>
+      <div class="tabla-scroll">
+        <table class="tabla-v2">
+          <thead>
+            <tr>
+              <th class="th-sticky" style="left:0;width:35px">#</th>
+              <th class="th-sticky th-name" style="left:35px">Participante</th>
+              <th class="th-sticky" style="left:155px">Pts</th>
+              ${hdr}
+            </tr>
+          </thead>
+          <tbody>${rows || `<tr><td colspan="999" class="td-empty">Sin datos aún</td></tr>`}</tbody>
+        </table>
+      </div>
+    </div>`;
+  },
+  
+  switchTab(tab) {
+    document.getElementById("tabla-content-grupos").style.display = tab === "grupos" ? "block" : "none";
+    document.getElementById("tabla-content-finales").style.display = tab === "finales" ? "block" : "none";
+    document.getElementById("ttab-grupos").classList.toggle("active", tab === "grupos");
+    document.getElementById("ttab-finales").classList.toggle("active", tab === "finales");
+  },
+  
+  printPDF() {
+    Utils.showToast("Generando PDF...", "info");
+    // Implementación del PDF aquí
+  }
+},
+  // ═════════════════════════════════════════════════════════════════
+//  VISTA: ESTADÍSTICAS
+// ═════════════════════════════════════════════════════════════════
+Stats: {
+  async render() {
+    const main = Views.main;
+    main.innerHTML = `<div class="page-wrap"><div class="loading-spin"></div></div>`;
+    
+    // Cargar datos necesarios
+    const matches = await FirebaseService.getMatches();
+    const users = await FirebaseService.getAllUsers();
+    
+    // Obtener predicciones
+    const predsSnap = await getDocs(collection(FirebaseService.db, "predictions"));
+    const predsMap = {};
+    predsSnap.forEach(d => {
+      predsMap[d.id] = d.data().preds || {};
+    });
+    
+    const finalPhaseKeys = ["r32", "r16", "qf", "sf", "tf", "final"];
+    const stats = [];
+    
+    users.forEach(u => {
+      // Ignorar admins
+      if (u.email === CONFIG.ADMIN_EMAIL || u.email === CONFIG.ADMIN2_EMAIL) return;
+      
+      const uid = u.uid;
+      const preds = predsMap[uid] || {};
+      let pts = 0, exact = 0, winner = 0, miss = 0, maxStreak = 0, curStreak = 0;
+      
       matches.forEach(m => {
-        if (m.official && m.official.home !== null && m.official.home !== undefined) {
-          offMap[m.id] = m.official;
+        const off = m.official;
+        const pred = preds[m.id];
+        
+        if (!off || off.home === null || off.home === undefined || !pred) {
+          // No cuenta para racha si no hay resultado o predicción
+          curStreak = 0;
+          return;
         }
+        
+        const isElim = finalPhaseKeys.includes(m.phase);
+        const p = isElim ? Utils.calcPointsElim(pred, off) : Utils.calcPoints(pred, off);
+        
+        if (p > 0) {
+          curStreak++;
+          maxStreak = Math.max(maxStreak, curStreak);
+        } else {
+          curStreak = 0;
+        }
+        
+        if (p >= 3) { pts += p; exact++; }
+        else if (p === 2) { pts += 2; winner++; }
+        else if (p === 1) { pts += 1; winner++; }
+        else { miss++; }
       });
       
-      const preds = await FirebaseService.getAllUsers().then(users => {
-        // Necesitamos obtener predicciones
-        return FirebaseService.subscribeToPredictions(() => {})();
-      });
+      const played = exact + winner + miss;
+      const pct = played > 0 ? Math.round((exact + winner) / played * 100) : 0;
       
-      // Implementación simplificada - en producción usar subscribeToPredictions
-      main.innerHTML = `
-      <div class="tabla-wrap">
-        <div class="tabla-header">
-          <h2 class="page-title">📊 Tabla</h2>
-          <div class="tabla-legend">
-            <span><span class="dot dot-exact"></span> 3pts</span>
-            <span><span class="dot dot-winner"></span> 1pt</span>
-            <span><span class="dot dot-miss"></span> 0pts</span>
-            <span><span class="dot dot-pending"></span> Pend.</span>
+      stats.push({
+        uid,
+        name: u.displayName || u.name || uid,
+        pts,
+        exact,
+        winner,
+        miss,
+        maxStreak,
+        pct,
+        played
+      });
+    });
+    
+    stats.sort((a, b) => b.pts - a.pts);
+    
+    // Encontrar mis estadísticas
+    const myStats = stats.find(s => s.uid === Views.state.currentUser.uid);
+    
+    let myCard = "";
+    if (myStats) {
+      myCard = `
+      <div class="stats-hero-card">
+        <div class="shc-name">📊 Mis estadísticas</div>
+        <div class="shc-grid">
+          <div class="shc-stat"><span class="shc-val">${myStats.pts}</span><span class="shc-lbl">Puntos</span></div>
+          <div class="shc-stat"><span class="shc-val" style="color:var(--success)">${myStats.exact}</span><span class="shc-lbl">Exactos</span></div>
+          <div class="shc-stat"><span class="shc-val" style="color:var(--warn)">${myStats.winner}</span><span class="shc-lbl">Ganador</span></div>
+          <div class="shc-stat"><span class="shc-val" style="color:var(--danger)">${myStats.miss}</span><span class="shc-lbl">Fallidos</span></div>
+          <div class="shc-stat"><span class="shc-val" style="color:var(--accent1)">${myStats.maxStreak}</span><span class="shc-lbl">Racha máx.</span></div>
+          <div class="shc-stat"><span class="shc-val">${myStats.pct}%</span><span class="shc-lbl">Precisión</span></div>
+        </div>
+      </div>`;
+    }
+    
+    const isMe = uid => uid === Views.state.currentUser.uid;
+    
+    const rows = stats.map((s, i) => `
+      <tr class="${isMe(s.uid) ? 'tr-me' : ''}">
+        <td>${i + 1}</td>
+        <td>${s.name}${isMe(s.uid) ? ' 👤' : ''}</td>
+        <td class="td-pts">${s.pts}</td>
+        <td style="color:var(--success)">${s.exact}</td>
+        <td style="color:var(--warn)">${s.winner}</td>
+        <td style="color:var(--danger)">${s.miss}</td>
+        <td style="color:var(--accent1)">${s.maxStreak} 🔥</td>
+        <td>${s.pct}%</td>
+      </tr>
+    `).join("");
+    
+    main.innerHTML = `
+    <div class="page-wrap">
+      <h2 class="page-title">📈 Estadísticas</h2>
+      ${myCard}
+      <div class="card" style="overflow-x:auto">
+        <table class="stats-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Nombre</th>
+              <th>Pts</th>
+              <th>Exactos</th>
+              <th>Ganador</th>
+              <th>Fallo</th>
+              <th>Racha</th>
+              <th>%</th>
+            </tr>
+          </thead>
+          <tbody>${rows || `<tr><td colspan="8" class="td-empty">Sin datos aún</td></tr>`}</tbody>
+        </table>
+      </div>
+    </div>`;
+  }
+},
+
+// ═════════════════════════════════════════════════════════════════
+//  VISTA: PROBABILIDADES
+// ═════════════════════════════════════════════════════════════════
+Probs: {
+  async render() {
+    const main = Views.main;
+    main.innerHTML = `<div class="page-wrap"><div class="loading-spin"></div></div>`;
+    
+    // Cargar datos
+    const matches = await FirebaseService.getMatches();
+    const users = await FirebaseService.getAllUsers();
+    
+    // Obtener predicciones
+    const predsSnap = await getDocs(collection(FirebaseService.db, "predictions"));
+    const allPreds = [];
+    predsSnap.forEach(d => {
+      const user = users.find(u => u.uid === d.id);
+      if (user && user.email !== CONFIG.ADMIN_EMAIL && user.email !== CONFIG.ADMIN2_EMAIL) {
+        allPreds.push({ uid: d.id, preds: d.data().preds || {} });
+      }
+    });
+    
+    // Calcular estadísticas por partido
+    const matchStats = {};
+    matches.forEach(m => {
+      matchStats[m.id] = { home: 0, draw: 0, away: 0, scores: {}, total: 0 };
+    });
+    
+    allPreds.forEach(entry => {
+      Object.entries(entry.preds).forEach(([mid, pred]) => {
+        if (!matchStats[mid]) return;
+        const s = matchStats[mid];
+        s.total++;
+        if (pred.home > pred.away) s.home++;
+        else if (pred.home < pred.away) s.away++;
+        else s.draw++;
+        
+        const key = `${pred.home}-${pred.away}`;
+        s.scores[key] = (s.scores[key] || 0) + 1;
+      });
+    });
+    
+    const groups = [...new Set(matches.filter(m => m.phase === "groups").map(m => m.group))].sort();
+    
+    let html = `
+    <div class="page-wrap">
+      <h2 class="page-title">🎯 Probabilidades</h2>
+      <p style="color:var(--muted);font-size:.85rem;margin-top:-.5rem">
+        Distribución de pronósticos de todos los participantes por partido.
+      </p>`;
+    
+    // Fase de grupos
+    for (const g of groups) {
+      const gMatches = matches.filter(m => m.group === g && m.published !== false);
+      if (!gMatches.length) continue;
+      
+      html += `<div class="card"><div class="card-title">Grupo ${g}</div>`;
+      
+      gMatches.forEach(m => {
+        const s = matchStats[m.id] || { home: 0, draw: 0, away: 0, scores: {}, total: 0 };
+        const tot = s.total || 1;
+        const homePct = Math.round(s.home / tot * 100);
+        const drawPct = Math.round(s.draw / tot * 100);
+        const awayPct = Math.round(s.away / tot * 100);
+        
+        const topScores = Object.entries(s.scores)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 3);
+        
+        html += `
+        <div class="prob-match">
+          <div class="prob-teams">${Utils.getFlag(m.home)} ${m.home} vs ${m.away} ${Utils.getFlag(m.away)}</div>
+          <div class="prob-date">${m.date} — ${s.total} pronósticos</div>
+          <div class="prob-bars">
+            <div class="prob-bar-wrap">
+              <div class="prob-label">${m.home}</div>
+              <div class="prob-bar"><div class="prob-fill prob-home" style="width:${homePct}%"></div></div>
+              <div class="prob-pct">${homePct}%</div>
+            </div>
+            <div class="prob-bar-wrap">
+              <div class="prob-label">Empate</div>
+              <div class="prob-bar"><div class="prob-fill prob-draw" style="width:${drawPct}%"></div></div>
+              <div class="prob-pct">${drawPct}%</div>
+            </div>
+            <div class="prob-bar-wrap">
+              <div class="prob-label">${m.away}</div>
+              <div class="prob-bar"><div class="prob-fill prob-away" style="width:${awayPct}%"></div></div>
+              <div class="prob-pct">${awayPct}%</div>
+            </div>
           </div>
-          <button class="btn-icon" onclick="Views.Tabla.printPDF()" title="Guardar PDF">💾</button>
-        </div>
-        <div class="tabla-tabs">
-          <button class="ttab active" id="ttab-grupos" onclick="Views.Tabla.switchTab('grupos')">⚽ Grupos</button>
-          <button class="ttab" id="ttab-finales" onclick="Views.Tabla.switchTab('finales')">🏆 Fases Finales</button>
-        </div>
-        <div id="tabla-content">Cargando datos...</div>
-      </div>`;
-    },
+          ${topScores.length > 0 ? `
+          <div class="prob-scores">
+            <span style="color:var(--muted);font-size:.75rem">Marcadores más populares:</span>
+            ${topScores.map(([sc, cnt]) => `<span class="prob-score-tag">${sc} <span>(${cnt})</span></span>`).join("")}
+          </div>` : ""}
+        </div>`;
+      });
+      
+      html += `</div>`;
+    }
     
-    switchTab(tab) {
-      document.getElementById("ttab-grupos").classList.toggle("active", tab === "grupos");
-      document.getElementById("ttab-finales").classList.toggle("active", tab === "finales");
-      // Implementar carga de datos según tab
-    },
+    // Fases eliminatorias
+    const elimPhases = [
+      { key: "r32", label: "16avos de Final" },
+      { key: "r16", label: "Octavos de Final" },
+      { key: "qf", label: "Cuartos de Final" },
+      { key: "sf", label: "Semifinales" },
+      { key: "tf", label: "Tercer Lugar" },
+      { key: "final", label: "Final" }
+    ];
     
-    printPDF() {
-      Utils.showToast("Generando PDF...", "info");
-    }
-  },
-  
-  // ═════════════════════════════════════════════════════════════════
-  //  VISTA: ESTADÍSTICAS
-  // ═════════════════════════════════════════════════════════════════
-  Stats: {
-    async render() {
-      const main = Views.main;
-      main.innerHTML = `
-      <div class="page-wrap">
-        <h2 class="page-title">📈 Estadísticas</h2>
-        <div class="card center-card">
-          <p style="color:var(--muted)">Cargando estadísticas...</p>
-        </div>
-      </div>`;
-    }
-  },
-  
-  // ═════════════════════════════════════════════════════════════════
-  //  VISTA: PROBABILIDADES
-  // ═════════════════════════════════════════════════════════════════
-  Probs: {
-    async render() {
-      const main = Views.main;
-      main.innerHTML = `
-      <div class="page-wrap">
-        <h2 class="page-title">🎯 Probabilidades</h2>
-        <div class="card center-card">
-          <p style="color:var(--muted)">Cargando probabilidades...</p>
-        </div>
-      </div>`;
-    }
-  },
+    const phases = Views.state.siteSettings.phases || {};
+    
+    elimPhases.forEach(ph => {
+      if (!phases[ph.key]) return;
+      const pm = matches.filter(m => m.phase === ph.key && m.published === true);
+      if (!pm.length) return;
+      
+      html += `<div class="card"><div class="card-title">${ph.label}</div>`;
+      
+      pm.forEach(m => {
+        const s = matchStats[m.id] || { home: 0, draw: 0, away: 0, scores: {}, total: 0 };
+        const tot = s.total || 1;
+        const homePct = Math.round(s.home / tot * 100);
+        const drawPct = Math.round(s.draw / tot * 100);
+        const awayPct = Math.round(s.away / tot * 100);
+        
+        const topScores = Object.entries(s.scores)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 3);
+        
+        html += `
+        <div class="prob-match">
+          <div class="prob-teams">${Utils.getFlag(m.home)} ${m.home} vs ${m.away} ${Utils.getFlag(m.away)}</div>
+          <div class="prob-date">${m.label || ""} — ${s.total} pronósticos</div>
+          <div class="prob-bars">
+            <div class="prob-bar-wrap">
+              <div class="prob-label">${m.home}</div>
+              <div class="prob-bar"><div class="prob-fill prob-home" style="width:${homePct}%"></div></div>
+              <div class="prob-pct">${homePct}%</div>
+            </div>
+            <div class="prob-bar-wrap">
+              <div class="prob-label">Empate</div>
+              <div class="prob-bar"><div class="prob-fill prob-draw" style="width:${drawPct}%"></div></div>
+              <div class="prob-pct">${drawPct}%</div>
+            </div>
+            <div class="prob-bar-wrap">
+              <div class="prob-label">${m.away}</div>
+              <div class="prob-bar"><div class="prob-fill prob-away" style="width:${awayPct}%"></div></div>
+              <div class="prob-pct">${awayPct}%</div>
+            </div>
+          </div>
+          ${topScores.length > 0 ? `
+          <div class="prob-scores">
+            <span style="color:var(--muted);font-size:.75rem">Marcadores más populares:</span>
+            ${topScores.map(([sc, cnt]) => `<span class="prob-score-tag">${sc} <span>(${cnt})</span></span>`).join("")}
+          </div>` : ""}
+        </div>`;
+      });
+      
+      html += `</div>`;
+    });
+    
+    html += `</div>`;
+    main.innerHTML = html;
+  }
+},
+ 
   
   // ═════════════════════════════════════════════════════════════════
   //  VISTA: REGLAS
