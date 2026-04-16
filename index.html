@@ -1697,54 +1697,47 @@ const Views = {
   },
   
 // ═════════════════════════════════════════════════════════════════
-//  VISTA: TABLA
+//  VISTA: TABLA - DISEÑO VERTICAL (Todos los usuarios visibles)
 // ═════════════════════════════════════════════════════════════════
 Tabla: {
   async render() {
     const main = Views.main;
     main.innerHTML = `<div class="page-wrap"><div class="loading-spin"></div></div>`;
     
-    // Cargar datos necesarios
+    // Cargar datos
     const matches = await FirebaseService.getMatches();
     const users = await FirebaseService.getAllUsers();
     
     // Obtener predicciones
+    const { getDocs, collection } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
     const predsSnap = await getDocs(collection(FirebaseService.db, "predictions"));
     const predsMap = {};
     predsSnap.forEach(d => {
       predsMap[d.id] = d.data().preds || {};
     });
     
-    // Crear mapa de usuarios
-    const uMap = {};
-    users.forEach(u => {
-      uMap[u.uid] = u;
-    });
+    // Filtrar usuarios válidos (no admins, con código de acceso)
+    const validUsers = users.filter(u => 
+      u.email !== CONFIG.ADMIN_EMAIL && 
+      u.email !== CONFIG.ADMIN2_EMAIL &&
+      (u.accessCode || u.verified)
+    ).sort((a, b) => (a.displayName || a.name || "").localeCompare(b.displayName || b.name || ""));
     
-    // Separar partidos por fase
+    // Separar partidos
     const groupMatches = matches.filter(m => m.phase === "groups" && m.published !== false);
     const finalPhases = ["r32", "r16", "qf", "sf", "tf", "final"];
     const finalMatches = matches.filter(m => finalPhases.includes(m.phase) && m.published === true);
     
-    // Crear mapa de resultados oficiales
-    const offMap = {};
-    matches.forEach(m => {
-      if (m.official && m.official.home !== null && m.official.home !== undefined) {
-        offMap[m.id] = m.official;
-      }
-    });
+    // Calcular puntos para cada usuario
+    const userStats = this.calcUserStats(validUsers, predsMap, groupMatches, false);
+    const userStatsFinal = this.calcUserStats(validUsers, predsMap, finalMatches, true);
     
-    // Construir leaderboard de grupos
-    const lbGroups = this.buildLeaderboard(users, predsMap, uMap, groupMatches, false);
-    
-    // Construir leaderboard de finales
-    const lbFinal = this.buildLeaderboard(users, predsMap, uMap, finalMatches, true);
-    
-    // Guardar en estado para PDF
-    Views.state._lbGroups = lbGroups;
-    Views.state._lbFinal = lbFinal;
+    // Guardar para PDF
+    Views.state._userStats = userStats;
+    Views.state._userStatsFinal = userStatsFinal;
     Views.state._groupMatches = groupMatches;
     Views.state._finalMatches = finalMatches;
+    Views.state._validUsers = validUsers;
     
     main.innerHTML = `
     <div class="tabla-wrap">
@@ -1755,102 +1748,204 @@ Tabla: {
           <span><span class="dot dot-winner"></span> 1pt</span>
           <span><span class="dot dot-miss"></span> 0pts</span>
           <span><span class="dot dot-pending"></span> Pend.</span>
+          <span><span class="dot dot-none"></span> Sin pred.</span>
         </div>
         <button class="btn-icon" onclick="Views.Tabla.printPDF()" title="Guardar PDF">💾</button>
       </div>
+      
       <div class="tabla-tabs">
-        <button class="ttab active" id="ttab-grupos" onclick="Views.Tabla.switchTab('grupos')">⚽ Grupos</button>
-        <button class="ttab" id="ttab-finales" onclick="Views.Tabla.switchTab('finales')">🏆 Fases Finales</button>
+        <button class="ttab active" id="ttab-grupos" onclick="Views.Tabla.switchTab('grupos')">
+          ⚽ Grupos (${groupMatches.length} partidos, ${userStats.length} usuarios)
+        </button>
+        <button class="ttab" id="ttab-finales" onclick="Views.Tabla.switchTab('finales')">
+          🏆 Fases Finales (${finalMatches.length} partidos, ${userStatsFinal.length} usuarios)
+        </button>
       </div>
+      
       <div id="tabla-content-grupos">
-        ${this.buildTableHTML(lbGroups, groupMatches, "⚽ Tabla de Grupos")}
+        ${this.buildVerticalTable(groupMatches, userStats, "⚽ Fase de Grupos")}
       </div>
+      
       <div id="tabla-content-finales" style="display:none">
-        ${finalMatches.length ? this.buildTableHTML(lbFinal, finalMatches, "🏆 Tabla de Fases Finales") : '<div class="card center-card" style="margin-top:1rem"><p style="color:var(--muted)">Aún no hay fases finales publicadas.</p></div>'}
+        ${finalMatches.length ? 
+          this.buildVerticalTable(finalMatches, userStatsFinal, "🏆 Fases Finales") : 
+          '<div class="card center-card" style="margin-top:1rem"><p style="color:var(--muted)">Aún no hay fases finales publicadas.</p></div>'
+        }
       </div>
     </div>`;
   },
   
-  buildLeaderboard(users, predsMap, uMap, matches, useElim) {
-    const lb = [];
+  calcUserStats(users, predsMap, matches, useElim) {
     const finalPhaseKeys = ["r32", "r16", "qf", "sf", "tf", "final"];
     
-    users.forEach(u => {
-      // Ignorar admins
-      if (u.email === CONFIG.ADMIN_EMAIL || u.email === CONFIG.ADMIN2_EMAIL) return;
+    const stats = users.map(u => {
+      const preds = predsMap[u.uid] || {};
+      let pts = 0, exact = 0, winner = 0, miss = 0;
+      const matchResults = {};
       
-      const uid = u.uid;
-      const preds = predsMap[uid] || {};
-      let pts = 0, exact = 0;
-      
-      const circles = matches.map(m => {
+      matches.forEach(m => {
         const off = m.official;
         const pred = preds[m.id];
         
-        if (!off || off.home === null || off.home === undefined) return "pending";
-        if (!pred) return "none";
-        
-        const isElim = finalPhaseKeys.includes(m.phase);
-        const p = isElim ? Utils.calcPointsElim(pred, off) : Utils.calcPoints(pred, off);
-        
-        if (p === null) return "pending";
-        if (p >= 3) { pts += p; exact++; return "exact"; }
-        if (p === 2) { pts += 2; return "winner"; }
-        if (p === 1) { pts += 1; return "winner"; }
-        return "miss";
+        if (!off || off.home === null || off.home === undefined) {
+          matchResults[m.id] = "pending";
+        } else if (!pred) {
+          matchResults[m.id] = "none";
+          miss++;
+        } else {
+          const isElim = finalPhaseKeys.includes(m.phase);
+          const p = isElim ? Utils.calcPointsElim(pred, off) : Utils.calcPoints(pred, off);
+          
+          if (p === null) {
+            matchResults[m.id] = "pending";
+          } else if (p >= 3) {
+            pts += p;
+            exact++;
+            matchResults[m.id] = "exact";
+          } else if (p >= 1) {
+            pts += p;
+            winner++;
+            matchResults[m.id] = "winner";
+          } else {
+            miss++;
+            matchResults[m.id] = "miss";
+          }
+        }
       });
       
-      lb.push({
-        uid,
-        name: u.displayName || u.name || uid,
+      return {
+        uid: u.uid,
+        name: u.displayName || u.name || u.uid,
         pts,
         exact,
-        circles
-      });
+        winner,
+        miss,
+        matchResults
+      };
     });
     
-    return lb.sort((a, b) => b.pts - a.pts || b.exact - a.exact);
+    // Ordenar por puntos y exactos
+    return stats.sort((a, b) => b.pts - a.pts || b.exact - a.exact);
   },
   
-  buildTableHTML(lb, matches, title) {
+  buildVerticalTable(matches, userStats, title) {
     if (!matches.length) {
       return `<div class="card center-card"><p style="color:var(--muted)">No hay partidos disponibles.</p></div>`;
     }
     
-    const hdr = matches.map(m => {
-      const h = m.home.length > 5 ? m.home.substring(0, 4) + "…" : m.home;
-      const a = m.away.length > 5 ? m.away.substring(0, 4) + "…" : m.away;
-      return `<th><div class="rot-hdr">${h}-${a}</div></th>`;
+    const currentUserId = Views.state.currentUser.uid;
+    
+    // ═════════════════════════════════════════════════════════════════
+    //  MOSTRAR TODOS LOS USUARIOS (no solo top 10)
+    // ═════════════════════════════════════════════════════════════════
+    const displayUsers = userStats; // Todos los usuarios, no solo top 10
+    
+    // Construir cabeceras de usuarios (columnas) - nombres más compactos
+    const userHeaders = displayUsers.map((u, i) => {
+      // Nombre más corto para caber más usuarios
+      const shortName = u.name.length > 6 ? u.name.substring(0, 5) + "…" : u.name;
+      const isMe = u.uid === currentUserId;
+      const rank = i + 1;
+      
+      return `<th class="user-col ${isMe ? 'col-me' : ''} ${i < 3 ? 'col-top-' + i : ''}" 
+                  title="#${rank} ${u.name} (${u.pts}pts, ${u.exact} exactos)">
+        <div class="user-rank">#${rank}</div>
+        <div class="user-header-name">${shortName}</div>
+        <div class="user-header-pts">${u.pts}</div>
+      </th>`;
     }).join("");
     
-    const rows = lb.map((r, i) => {
-      const cells = r.circles.map((c, idx) => 
-        `<td><span class="dot dot-${c}" title="${matches[idx] ? matches[idx].home + ' vs ' + matches[idx].away : ''}"></span></td>`
-      ).join("");
+    // Construir filas de partidos
+    const rows = matches.map((m, idx) => {
+      const userCells = displayUsers.map(u => {
+        const result = u.matchResults[m.id] || "none";
+        return `<td class="result-cell"><span class="dot dot-${result}"></span></td>`;
+      }).join("");
       
-      return `<tr class="${i < 3 ? 'tr-top-' + i : ''}">
-        <td class="td-pos">${i + 1}</td>
-        <td class="td-name">${r.name}</td>
-        <td class="td-pts">${r.pts}</td>
-        ${cells}
+      // Info del partido compacta
+      const homeShort = m.home.length > 10 ? m.home.substring(0, 8) + "…" : m.home;
+      const awayShort = m.away.length > 10 ? m.away.substring(0, 8) + "…" : m.away;
+      const hasResult = m.official && m.official.home !== null;
+      
+      return `
+      <tr class="${hasResult ? 'has-result' : ''}">
+        <td class="sticky-col match-info-col">
+          <div class="match-header">
+            <span class="match-num">#${idx + 1}</span>
+            <span class="match-group">${m.group || m.label || ''}</span>
+          </div>
+          <div class="match-teams-compact">
+            <span class="team-home">${Utils.getFlag(m.home)} ${homeShort}</span>
+            <span class="team-vs">vs</span>
+            <span class="team-away">${awayShort} ${Utils.getFlag(m.away)}</span>
+          </div>
+          <div class="match-meta">
+            <span class="match-date">${m.date}</span>
+            ${hasResult ? `<span class="match-result-mini">${m.official.home}-${m.official.away}</span>` : ''}
+          </div>
+        </td>
+        ${userCells}
       </tr>`;
     }).join("");
     
+    // Resumen de todos los usuarios (scrollable horizontalmente)
     return `
-    <div class="tabla-card">
-      <div class="tabla-card-title">${title}</div>
-      <div class="tabla-scroll">
-        <table class="tabla-v2">
-          <thead>
-            <tr>
-              <th class="th-sticky" style="left:0;width:35px">#</th>
-              <th class="th-sticky th-name" style="left:35px">Participante</th>
-              <th class="th-sticky" style="left:155px">Pts</th>
-              ${hdr}
-            </tr>
-          </thead>
-          <tbody>${rows || `<tr><td colspan="999" class="td-empty">Sin datos aún</td></tr>`}</tbody>
-        </table>
+    <div class="vertical-table-container">
+      <!-- Info de la tabla -->
+      <div class="table-info-bar">
+        <span>📊 Mostrando ${displayUsers.length} usuarios</span>
+        <span>🏆 Tu posición: #${displayUsers.findIndex(u => u.uid === currentUserId) + 1} de ${displayUsers.length}</span>
+      </div>
+      
+      <!-- Tabla vertical de partidos -->
+      <div class="matches-vertical-table">
+        <div class="card-title">${title}</div>
+        <div class="table-scroll-x">
+          <table class="vertical-table">
+            <thead>
+              <tr>
+                <th class="sticky-col match-col-header">
+                  Partido<br>
+                  <small style="font-weight:400;color:var(--muted)">${matches.length} total</small>
+                </th>
+                ${userHeaders}
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      </div>
+      
+      <!-- Mini leaderboard con todos (scrollable) -->
+      <div class="leaderboard-all">
+        <div class="card-title">🏆 Posiciones Completas</div>
+        <div class="leaderboard-scroll">
+          <table class="leaderboard-table-all">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Nombre</th>
+                <th>Pts</th>
+                <th>3pts</th>
+                <th>1pt</th>
+                <th>0pts</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${displayUsers.map((u, i) => {
+                const isMe = u.uid === currentUserId;
+                return `<tr class="${isMe ? 'tr-me' : ''} ${i < 3 ? 'tr-top-' + i : ''}">
+                  <td class="td-pos">${i + 1}</td>
+                  <td class="td-name">${u.name}${isMe ? ' 👤' : ''}</td>
+                  <td class="td-pts">${u.pts}</td>
+                  <td>${u.exact}</td>
+                  <td>${u.winner}</td>
+                  <td>${u.miss}</td>
+                </tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>`;
   },
@@ -1864,7 +1959,6 @@ Tabla: {
   
   printPDF() {
     Utils.showToast("Generando PDF...", "info");
-    // Implementación del PDF aquí
   }
 },
   // ═════════════════════════════════════════════════════════════════
@@ -2691,6 +2785,308 @@ main.full{max-width:100%;padding:0}
 .rule-v2 h4{font-family:'Syne',sans-serif;font-weight:700;margin-bottom:.2rem;font-size:.88rem;color:var(--text)}
 .rule-v2 p{color:var(--muted);font-size:.83rem;line-height:1.55}
 @media(max-width:480px){main{padding:1rem .75rem}.page-title{font-size:1.4rem}.hero-name{font-size:1.5rem}.hero-bg-text{font-size:5rem}}
+/* ═════════════════════════════════════════════════════════════════ */
+/*  CSS TABLA VERTICAL - TODOS LOS USUARIOS */
+/* ═════════════════════════════════════════════════════════════════ */
+
+/* Contenedor principal */
+.vertical-table-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* Barra de info */
+.table-info-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.75rem 1rem;
+  font-size: 0.85rem;
+  color: var(--text2);
+}
+
+/* Tabla vertical de partidos */
+.matches-vertical-table {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem;
+  overflow: hidden;
+}
+
+.table-scroll-x {
+  overflow-x: auto;
+  max-width: 100%;
+  margin-top: 0.5rem;
+}
+
+.vertical-table {
+  width: auto;
+  min-width: 100%;
+  border-collapse: collapse;
+  font-size: 0.7rem;
+}
+
+.vertical-table th,
+.vertical-table td {
+  padding: 0.35rem 0.25rem;
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* Columna de partido sticky */
+.sticky-col {
+  position: sticky;
+  left: 0;
+  background: var(--card);
+  z-index: 10;
+  min-width: 160px;
+  max-width: 180px;
+  text-align: left !important;
+  border-right: 2px solid var(--border);
+}
+
+.match-col-header {
+  font-family: 'Syne', sans-serif;
+  color: var(--c1);
+  font-weight: 700;
+  font-size: 0.75rem;
+  line-height: 1.3;
+}
+
+/* Info del partido compacta */
+.match-info-col {
+  text-align: left;
+  padding: 0.4rem !important;
+}
+
+.match-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.2rem;
+}
+
+.match-num {
+  font-size: 0.7rem;
+  color: var(--c1);
+  font-weight: 700;
+}
+
+.match-group {
+  font-size: 0.6rem;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+.match-teams-compact {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-weight: 600;
+  font-size: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.team-home {
+  color: var(--text);
+}
+
+.team-vs {
+  color: var(--muted);
+  font-size: 0.65rem;
+}
+
+.team-away {
+  color: var(--text2);
+}
+
+.match-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 0.25rem;
+  font-size: 0.65rem;
+}
+
+.match-date {
+  color: var(--muted);
+}
+
+.match-result-mini {
+  color: var(--success);
+  font-weight: 700;
+  background: rgba(46, 158, 91, 0.1);
+  padding: 0.1rem 0.3rem;
+  border-radius: 4px;
+}
+
+/* Columnas de usuarios - más compactas para caber más */
+.user-col {
+  min-width: 38px;
+  max-width: 50px;
+  background: rgba(255, 255, 255, 0.02);
+  padding: 0.3rem 0.2rem !important;
+}
+
+.user-rank {
+  font-size: 0.6rem;
+  color: var(--muted);
+  font-weight: 700;
+  margin-bottom: 0.15rem;
+}
+
+.user-header-name {
+  font-size: 0.6rem;
+  font-weight: 600;
+  color: var(--text);
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  transform: rotate(180deg);
+  max-height: 50px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin: 0 auto;
+  line-height: 1;
+}
+
+.user-header-pts {
+  font-size: 0.65rem;
+  color: var(--c1);
+  font-weight: 700;
+  margin-top: 0.2rem;
+}
+
+/* Destacar top 3 */
+.col-top-0 {
+  background: rgba(255, 215, 0, 0.15) !important;
+  border-top: 2px solid gold;
+}
+
+.col-top-1 {
+  background: rgba(192, 192, 192, 0.1) !important;
+  border-top: 2px solid silver;
+}
+
+.col-top-2 {
+  background: rgba(205, 127, 50, 0.1) !important;
+  border-top: 2px solid #cd7f32;
+}
+
+/* Usuario actual */
+.col-me {
+  background: rgba(42, 107, 74, 0.2) !important;
+  border: 1px solid var(--accent1);
+  box-shadow: 0 0 8px rgba(42, 107, 74, 0.3);
+}
+
+.col-me .user-header-name {
+  color: var(--c1);
+  font-weight: 700;
+}
+
+/* Celdas de resultado */
+.result-cell {
+  padding: 0.25rem !important;
+}
+
+/* Filas con resultado oficial */
+tr.has-result {
+  background: rgba(46, 158, 91, 0.03);
+}
+
+tr.has-result .sticky-col {
+  border-left: 3px solid var(--success);
+}
+
+/* Leaderboard con todos los usuarios */
+.leaderboard-all {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem;
+}
+
+.leaderboard-scroll {
+  overflow-x: auto;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.leaderboard-table-all {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+
+.leaderboard-table-all th {
+  background: rgba(201, 168, 76, 0.06);
+  color: var(--c1);
+  padding: 0.5rem;
+  text-align: left;
+  font-family: 'Syne', sans-serif;
+  font-size: 0.75rem;
+  position: sticky;
+  top: 0;
+}
+
+.leaderboard-table-all td {
+  padding: 0.4rem 0.5rem;
+  border-top: 1px solid var(--border2);
+}
+
+/* Scrollbars */
+.table-scroll-x::-webkit-scrollbar,
+.leaderboard-scroll::-webkit-scrollbar {
+  height: 10px;
+  width: 10px;
+}
+
+.table-scroll-x::-webkit-scrollbar-track,
+.leaderboard-scroll::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 5px;
+}
+
+.table-scroll-x::-webkit-scrollbar-thumb,
+.leaderboard-scroll::-webkit-scrollbar-thumb {
+  background: var(--c3);
+  border-radius: 5px;
+}
+
+.table-scroll-x::-webkit-scrollbar-thumb:hover,
+.leaderboard-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--c1);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .user-header-name {
+    max-height: 35px;
+    font-size: 0.55rem;
+  }
+  
+  .user-col {
+    min-width: 32px;
+    max-width: 42px;
+  }
+  
+  .sticky-col {
+    min-width: 140px;
+    max-width: 160px;
+  }
+  
+  .table-info-bar {
+    flex-direction: column;
+    gap: 0.5rem;
+    text-align: center;
+  }
+}
 </style>
 
 <body>
