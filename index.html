@@ -1697,7 +1697,7 @@ const Views = {
   },
   
 // ═════════════════════════════════════════════════════════════════
-//  VISTA: TABLA - DISEÑO VERTICAL (Todos los usuarios visibles)
+//  VISTA: TABLA - DISEÑO HORIZONTAL (Todos los partidos visibles)
 // ═════════════════════════════════════════════════════════════════
 Tabla: {
   async render() {
@@ -1716,19 +1716,24 @@ Tabla: {
       predsMap[d.id] = d.data().preds || {};
     });
     
-    // Filtrar usuarios válidos (no admins, con código de acceso)
+    // Filtrar usuarios válidos
     const validUsers = users.filter(u => 
       u.email !== CONFIG.ADMIN_EMAIL && 
       u.email !== CONFIG.ADMIN2_EMAIL &&
       (u.accessCode || u.verified)
     ).sort((a, b) => (a.displayName || a.name || "").localeCompare(b.displayName || b.name || ""));
     
-    // Separar partidos
-    const groupMatches = matches.filter(m => m.phase === "groups" && m.published !== false);
-    const finalPhases = ["r32", "r16", "qf", "sf", "tf", "final"];
-    const finalMatches = matches.filter(m => finalPhases.includes(m.phase) && m.published === true);
+    // Separar partidos y ordenar cronológicamente
+    const groupMatches = matches
+      .filter(m => m.phase === "groups" && m.published !== false)
+      .sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time));
     
-    // Calcular puntos para cada usuario
+    const finalPhases = ["r32", "r16", "qf", "sf", "tf", "final"];
+    const finalMatches = matches
+      .filter(m => finalPhases.includes(m.phase) && m.published === true)
+      .sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time));
+    
+    // Calcular puntos
     const userStats = this.calcUserStats(validUsers, predsMap, groupMatches, false);
     const userStatsFinal = this.calcUserStats(validUsers, predsMap, finalMatches, true);
     
@@ -1737,7 +1742,6 @@ Tabla: {
     Views.state._userStatsFinal = userStatsFinal;
     Views.state._groupMatches = groupMatches;
     Views.state._finalMatches = finalMatches;
-    Views.state._validUsers = validUsers;
     
     main.innerHTML = `
     <div class="tabla-wrap">
@@ -1755,20 +1759,20 @@ Tabla: {
       
       <div class="tabla-tabs">
         <button class="ttab active" id="ttab-grupos" onclick="Views.Tabla.switchTab('grupos')">
-          ⚽ Grupos (${groupMatches.length} partidos, ${userStats.length} usuarios)
+          ⚽ Grupos (${groupMatches.length} partidos)
         </button>
         <button class="ttab" id="ttab-finales" onclick="Views.Tabla.switchTab('finales')">
-          🏆 Fases Finales (${finalMatches.length} partidos, ${userStatsFinal.length} usuarios)
+          🏆 Fases Finales (${finalMatches.length} partidos)
         </button>
       </div>
       
       <div id="tabla-content-grupos">
-        ${this.buildVerticalTable(groupMatches, userStats, "⚽ Fase de Grupos")}
+        ${this.buildHorizontalTable(groupMatches, userStats, "⚽ Fase de Grupos")}
       </div>
       
       <div id="tabla-content-finales" style="display:none">
         ${finalMatches.length ? 
-          this.buildVerticalTable(finalMatches, userStatsFinal, "🏆 Fases Finales") : 
+          this.buildHorizontalTable(finalMatches, userStatsFinal, "🏆 Fases Finales") : 
           '<div class="card center-card" style="margin-top:1rem"><p style="color:var(--muted)">Aún no hay fases finales publicadas.</p></div>'
         }
       </div>
@@ -1824,91 +1828,73 @@ Tabla: {
       };
     });
     
-    // Ordenar por puntos y exactos
     return stats.sort((a, b) => b.pts - a.pts || b.exact - a.exact);
   },
   
-  buildVerticalTable(matches, userStats, title) {
+  buildHorizontalTable(matches, userStats, title) {
     if (!matches.length) {
       return `<div class="card center-card"><p style="color:var(--muted)">No hay partidos disponibles.</p></div>`;
     }
     
     const currentUserId = Views.state.currentUser.uid;
+    const displayUsers = userStats; // Todos los usuarios
     
-    // ═════════════════════════════════════════════════════════════════
-    //  MOSTRAR TODOS LOS USUARIOS (no solo top 10)
-    // ═════════════════════════════════════════════════════════════════
-    const displayUsers = userStats; // Todos los usuarios, no solo top 10
-    
-    // Construir cabeceras de usuarios (columnas) - nombres más compactos
-    const userHeaders = displayUsers.map((u, i) => {
-      // Nombre más corto para caber más usuarios
-      const shortName = u.name.length > 6 ? u.name.substring(0, 5) + "…" : u.name;
-      const isMe = u.uid === currentUserId;
-      const rank = i + 1;
+    // Cabeceras de partidos - ULTRA COMPACTAS para caber todos
+    const hdr = matches.map((m, idx) => {
+      const homeTiny = m.home.length > 3 ? m.home.substring(0, 3) + "." : m.home;
+      const awayTiny = m.away.length > 3 ? m.away.substring(0, 3) + "." : m.away;
+      const hasResult = m.official && m.official.home !== null;
       
-      return `<th class="user-col ${isMe ? 'col-me' : ''} ${i < 3 ? 'col-top-' + i : ''}" 
-                  title="#${rank} ${u.name} (${u.pts}pts, ${u.exact} exactos)">
-        <div class="user-rank">#${rank}</div>
-        <div class="user-header-name">${shortName}</div>
-        <div class="user-header-pts">${u.pts}</div>
+      return `<th class="match-header-cell ${hasResult ? 'has-result' : ''}" title="#${idx + 1}: ${m.home} vs ${m.away} - ${m.date} ${m.time}${hasResult ? ' | Resultado: ' + m.official.home + '-' + m.official.away : ''}">
+        <div class="match-num-mini">#${idx + 1}</div>
+        <div class="match-teams-mini">
+          <span class="team-mini">${homeTiny}</span>
+          <span class="vs-mini">v</span>
+          <span class="team-mini">${awayTiny}</span>
+        </div>
+        <div class="match-date-mini">${m.date.substring(5)}</div>
+        ${hasResult ? `<div class="result-mini">${m.official.home}-${m.official.away}</div>` : ''}
       </th>`;
     }).join("");
     
-    // Construir filas de partidos
-    const rows = matches.map((m, idx) => {
-      const userCells = displayUsers.map(u => {
+    // Filas de usuarios
+    const rows = displayUsers.map((u, i) => {
+      const cells = matches.map(m => {
         const result = u.matchResults[m.id] || "none";
-        return `<td class="result-cell"><span class="dot dot-${result}"></span></td>`;
+        return `<td class="result-td"><span class="dot dot-${result}"></span></td>`;
       }).join("");
       
-      // Info del partido compacta
-      const homeShort = m.home.length > 10 ? m.home.substring(0, 8) + "…" : m.home;
-      const awayShort = m.away.length > 10 ? m.away.substring(0, 8) + "…" : m.away;
-      const hasResult = m.official && m.official.home !== null;
+      const isMe = u.uid === currentUserId;
       
-      return `
-      <tr class="${hasResult ? 'has-result' : ''}">
-        <td class="sticky-col match-info-col">
-          <div class="match-header">
-            <span class="match-num">#${idx + 1}</span>
-            <span class="match-group">${m.group || m.label || ''}</span>
-          </div>
-          <div class="match-teams-compact">
-            <span class="team-home">${Utils.getFlag(m.home)} ${homeShort}</span>
-            <span class="team-vs">vs</span>
-            <span class="team-away">${awayShort} ${Utils.getFlag(m.away)}</span>
-          </div>
-          <div class="match-meta">
-            <span class="match-date">${m.date}</span>
-            ${hasResult ? `<span class="match-result-mini">${m.official.home}-${m.official.away}</span>` : ''}
-          </div>
+      return `<tr class="${isMe ? 'tr-me' : ''} ${i < 3 ? 'tr-top-' + i : ''}">
+        <td class="td-pos">${i + 1}</td>
+        <td class="td-name">
+          <div class="user-name-main">${u.name}</div>
+          ${isMe ? '<span class="you-badge">TÚ</span>' : ''}
         </td>
-        ${userCells}
+        <td class="td-pts">${u.pts}</td>
+        ${cells}
       </tr>`;
     }).join("");
     
-    // Resumen de todos los usuarios (scrollable horizontalmente)
     return `
-    <div class="vertical-table-container">
-      <!-- Info de la tabla -->
+    <div class="horizontal-table-container">
       <div class="table-info-bar">
-        <span>📊 Mostrando ${displayUsers.length} usuarios</span>
-        <span>🏆 Tu posición: #${displayUsers.findIndex(u => u.uid === currentUserId) + 1} de ${displayUsers.length}</span>
+        <span>📊 ${displayUsers.length} participantes</span>
+        <span>🏆 Tu posición: #${displayUsers.findIndex(u => u.uid === currentUserId) + 1}</span>
+        <span>📅 ${matches.length} partidos en orden cronológico</span>
       </div>
       
-      <!-- Tabla vertical de partidos -->
-      <div class="matches-vertical-table">
-        <div class="card-title">${title}</div>
+      <div class="horizontal-table-wrapper">
+        <div class="card-title" style="margin-bottom:0.5rem">${title}</div>
         <div class="table-scroll-x">
-          <table class="vertical-table">
+          <table class="tabla-h">
             <thead>
               <tr>
-                <th class="sticky-col match-col-header">
-                  Partido<br>
-                  <small style="font-weight:400;color:var(--muted)">${matches.length} total</small>
-                </th>
-                ${userHeaders}
+                <th class="th-sticky th-pos">#</th>
+                <th class="th-sticky th-name">Participante</th>
+                <th class="th-sticky th-pts">Pts</th>
+                ${hdr}
               </tr>
             </thead>
             <tbody>${rows}</tbody>
@@ -1916,35 +1902,17 @@ Tabla: {
         </div>
       </div>
       
-      <!-- Mini leaderboard con todos (scrollable) -->
-      <div class="leaderboard-all">
-        <div class="card-title">🏆 Posiciones Completas</div>
-        <div class="leaderboard-scroll">
-          <table class="leaderboard-table-all">
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>Nombre</th>
-                <th>Pts</th>
-                <th>3pts</th>
-                <th>1pt</th>
-                <th>0pts</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${displayUsers.map((u, i) => {
-                const isMe = u.uid === currentUserId;
-                return `<tr class="${isMe ? 'tr-me' : ''} ${i < 3 ? 'tr-top-' + i : ''}">
-                  <td class="td-pos">${i + 1}</td>
-                  <td class="td-name">${u.name}${isMe ? ' 👤' : ''}</td>
-                  <td class="td-pts">${u.pts}</td>
-                  <td>${u.exact}</td>
-                  <td>${u.winner}</td>
-                  <td>${u.miss}</td>
-                </tr>`;
-              }).join('')}
-            </tbody>
-          </table>
+      <!-- Mini guía de partidos abajo -->
+      <div class="matches-guide">
+        <div class="card-title">📅 Guía de Partidos (${matches.length} total)</div>
+        <div class="matches-guide-scroll">
+          ${matches.map((m, i) => `
+            <div class="match-guide-item" title="${m.home} vs ${m.away}">
+              <span class="guide-num">#${i + 1}</span>
+              <span class="guide-teams">${Utils.getFlag(m.home)} ${m.home.substring(0, 8)} vs ${m.away.substring(0, 8)} ${Utils.getFlag(m.away)}</span>
+              <span class="guide-date">${m.date}</span>
+            </div>
+          `).join('')}
         </div>
       </div>
     </div>`;
@@ -2786,17 +2754,15 @@ main.full{max-width:100%;padding:0}
 .rule-v2 p{color:var(--muted);font-size:.83rem;line-height:1.55}
 @media(max-width:480px){main{padding:1rem .75rem}.page-title{font-size:1.4rem}.hero-name{font-size:1.5rem}.hero-bg-text{font-size:5rem}}
 /* ═════════════════════════════════════════════════════════════════ */
-/*  CSS TABLA VERTICAL - TODOS LOS USUARIOS */
+/*  CSS TABLA HORIZONTAL - TODOS LOS PARTIDOS VISIBLES */
 /* ═════════════════════════════════════════════════════════════════ */
 
-/* Contenedor principal */
-.vertical-table-container {
+.horizontal-table-container {
   display: flex;
   flex-direction: column;
   gap: 1rem;
 }
 
-/* Barra de info */
 .table-info-bar {
   display: flex;
   justify-content: space-between;
@@ -2807,10 +2773,11 @@ main.full{max-width:100%;padding:0}
   padding: 0.75rem 1rem;
   font-size: 0.85rem;
   color: var(--text2);
+  flex-wrap: wrap;
+  gap: 0.5rem;
 }
 
-/* Tabla vertical de partidos */
-.matches-vertical-table {
+.horizontal-table-wrapper {
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -2818,272 +2785,254 @@ main.full{max-width:100%;padding:0}
   overflow: hidden;
 }
 
-.table-scroll-x {
-  overflow-x: auto;
-  max-width: 100%;
-  margin-top: 0.5rem;
-}
-
-.vertical-table {
+/* Tabla horizontal */
+.tabla-h {
   width: auto;
-  min-width: 100%;
   border-collapse: collapse;
-  font-size: 0.7rem;
+  font-size: 0.65rem;
 }
 
-.vertical-table th,
-.vertical-table td {
-  padding: 0.35rem 0.25rem;
+.tabla-h th,
+.tabla-h td {
+  padding: 0.3rem 0.25rem;
   text-align: center;
   white-space: nowrap;
+  border-right: 1px solid rgba(255, 255, 255, 0.05);
 }
 
-/* Columna de partido sticky */
-.sticky-col {
+/* Columnas sticky izquierda */
+.th-sticky {
   position: sticky;
   left: 0;
   background: var(--card);
-  z-index: 10;
-  min-width: 160px;
-  max-width: 180px;
-  text-align: left !important;
-  border-right: 2px solid var(--border);
-}
-
-.match-col-header {
+  z-index: 20;
   font-family: 'Syne', sans-serif;
   color: var(--c1);
-  font-weight: 700;
-  font-size: 0.75rem;
-  line-height: 1.3;
-}
-
-/* Info del partido compacta */
-.match-info-col {
-  text-align: left;
-  padding: 0.4rem !important;
-}
-
-.match-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 0.2rem;
-}
-
-.match-num {
-  font-size: 0.7rem;
-  color: var(--c1);
-  font-weight: 700;
-}
-
-.match-group {
-  font-size: 0.6rem;
-  color: var(--muted);
-  text-transform: uppercase;
-}
-
-.match-teams-compact {
-  display: flex;
-  align-items: center;
-  gap: 0.3rem;
   font-weight: 600;
-  font-size: 0.75rem;
-  flex-wrap: wrap;
 }
 
-.team-home {
-  color: var(--text);
+.th-pos {
+  left: 0;
+  width: 30px;
+  min-width: 30px;
 }
 
-.team-vs {
-  color: var(--muted);
-  font-size: 0.65rem;
+.th-name {
+  left: 30px;
+  min-width: 120px;
+  text-align: left !important;
 }
 
-.team-away {
-  color: var(--text2);
+.th-pts {
+  left: 150px;
+  width: 35px;
+  min-width: 35px;
 }
 
-.match-meta {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: 0.25rem;
-  font-size: 0.65rem;
-}
-
-.match-date {
-  color: var(--muted);
-}
-
-.match-result-mini {
-  color: var(--success);
-  font-weight: 700;
-  background: rgba(46, 158, 91, 0.1);
-  padding: 0.1rem 0.3rem;
-  border-radius: 4px;
-}
-
-/* Columnas de usuarios - más compactas para caber más */
-.user-col {
-  min-width: 38px;
-  max-width: 50px;
+/* Cabeceras de partidos - ULTRA COMPACTAS */
+.match-header-cell {
+  min-width: 55px;
+  max-width: 65px;
+  padding: 0.25rem !important;
+  line-height: 1.1;
   background: rgba(255, 255, 255, 0.02);
-  padding: 0.3rem 0.2rem !important;
 }
 
-.user-rank {
-  font-size: 0.6rem;
+.match-header-cell.has-result {
+  background: rgba(46, 158, 91, 0.08);
+}
+
+.match-num-mini {
+  font-size: 0.55rem;
   color: var(--muted);
   font-weight: 700;
-  margin-bottom: 0.15rem;
 }
 
-.user-header-name {
+.match-teams-mini {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.1rem;
   font-size: 0.6rem;
   font-weight: 600;
-  color: var(--text);
-  writing-mode: vertical-rl;
-  text-orientation: mixed;
-  transform: rotate(180deg);
-  max-height: 50px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  margin: 0 auto;
+}
+
+.team-mini {
+  font-size: 0.6rem;
   line-height: 1;
 }
 
-.user-header-pts {
-  font-size: 0.65rem;
-  color: var(--c1);
+.vs-mini {
+  font-size: 0.5rem;
+  color: var(--muted);
+}
+
+.match-date-mini {
+  font-size: 0.5rem;
+  color: var(--muted);
+  margin-top: 0.1rem;
+}
+
+.result-mini {
+  font-size: 0.55rem;
+  color: var(--success);
   font-weight: 700;
-  margin-top: 0.2rem;
-}
-
-/* Destacar top 3 */
-.col-top-0 {
-  background: rgba(255, 215, 0, 0.15) !important;
-  border-top: 2px solid gold;
-}
-
-.col-top-1 {
-  background: rgba(192, 192, 192, 0.1) !important;
-  border-top: 2px solid silver;
-}
-
-.col-top-2 {
-  background: rgba(205, 127, 50, 0.1) !important;
-  border-top: 2px solid #cd7f32;
-}
-
-/* Usuario actual */
-.col-me {
-  background: rgba(42, 107, 74, 0.2) !important;
-  border: 1px solid var(--accent1);
-  box-shadow: 0 0 8px rgba(42, 107, 74, 0.3);
-}
-
-.col-me .user-header-name {
-  color: var(--c1);
-  font-weight: 700;
+  background: rgba(46, 158, 91, 0.15);
+  padding: 0.05rem 0.15rem;
+  border-radius: 3px;
+  margin-top: 0.1rem;
 }
 
 /* Celdas de resultado */
-.result-cell {
+.result-td {
   padding: 0.25rem !important;
 }
 
-/* Filas con resultado oficial */
-tr.has-result {
-  background: rgba(46, 158, 91, 0.03);
+/* Filas de usuarios */
+.td-pos {
+  font-family: 'Syne', sans-serif;
+  font-weight: 700;
+  font-size: 0.75rem;
+  color: var(--text);
 }
 
-tr.has-result .sticky-col {
-  border-left: 3px solid var(--success);
+.td-name {
+  text-align: left !important;
+  font-weight: 600;
+  font-size: 0.75rem;
+  padding-left: 0.5rem !important;
 }
 
-/* Leaderboard con todos los usuarios */
-.leaderboard-all {
+.user-name-main {
+  max-width: 110px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.you-badge {
+  display: inline-block;
+  background: var(--accent1);
+  color: var(--c1);
+  font-size: 0.55rem;
+  padding: 0.1rem 0.3rem;
+  border-radius: 3px;
+  margin-left: 0.3rem;
+  font-weight: 700;
+}
+
+.td-pts {
+  font-family: 'Syne', sans-serif;
+  font-weight: 800;
+  font-size: 0.8rem;
+  color: var(--c1);
+}
+
+/* Destacar top 3 */
+.tr-top-0 td {
+  background: rgba(255, 215, 0, 0.1) !important;
+}
+
+.tr-top-1 td {
+  background: rgba(192, 192, 192, 0.08) !important;
+}
+
+.tr-top-2 td {
+  background: rgba(205, 127, 50, 0.08) !important;
+}
+
+.tr-me td {
+  background: rgba(42, 107, 74, 0.12) !important;
+}
+
+.tr-me .td-name {
+  color: var(--c1);
+  font-weight: 700;
+}
+
+/* Guía de partidos abajo */
+.matches-guide {
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 1rem;
 }
 
-.leaderboard-scroll {
-  overflow-x: auto;
-  max-height: 400px;
+.matches-guide-scroll {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  max-height: 200px;
   overflow-y: auto;
+  margin-top: 0.5rem;
 }
 
-.leaderboard-table-all {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.8rem;
+.match-guide-item {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border2);
+  border-radius: 6px;
+  padding: 0.3rem 0.5rem;
+  font-size: 0.7rem;
 }
 
-.leaderboard-table-all th {
-  background: rgba(201, 168, 76, 0.06);
+.guide-num {
+  font-weight: 700;
   color: var(--c1);
-  padding: 0.5rem;
-  text-align: left;
-  font-family: 'Syne', sans-serif;
-  font-size: 0.75rem;
-  position: sticky;
-  top: 0;
+  font-size: 0.65rem;
 }
 
-.leaderboard-table-all td {
-  padding: 0.4rem 0.5rem;
-  border-top: 1px solid var(--border2);
+.guide-teams {
+  color: var(--text);
 }
 
-/* Scrollbars */
-.table-scroll-x::-webkit-scrollbar,
-.leaderboard-scroll::-webkit-scrollbar {
-  height: 10px;
-  width: 10px;
+.guide-date {
+  color: var(--muted);
+  font-size: 0.6rem;
 }
 
-.table-scroll-x::-webkit-scrollbar-track,
-.leaderboard-scroll::-webkit-scrollbar-track {
+/* Scrollbar */
+.table-scroll-x::-webkit-scrollbar {
+  height: 12px;
+}
+
+.table-scroll-x::-webkit-scrollbar-track {
   background: rgba(255, 255, 255, 0.05);
-  border-radius: 5px;
+  border-radius: 6px;
 }
 
-.table-scroll-x::-webkit-scrollbar-thumb,
-.leaderboard-scroll::-webkit-scrollbar-thumb {
+.table-scroll-x::-webkit-scrollbar-thumb {
   background: var(--c3);
-  border-radius: 5px;
+  border-radius: 6px;
 }
 
-.table-scroll-x::-webkit-scrollbar-thumb:hover,
-.leaderboard-scroll::-webkit-scrollbar-thumb:hover {
+.table-scroll-x::-webkit-scrollbar-thumb:hover {
   background: var(--c1);
 }
 
 /* Responsive */
 @media (max-width: 768px) {
-  .user-header-name {
-    max-height: 35px;
+  .match-header-cell {
+    min-width: 45px;
+    max-width: 55px;
+  }
+  
+  .team-mini {
     font-size: 0.55rem;
   }
   
-  .user-col {
-    min-width: 32px;
-    max-width: 42px;
+  .th-name {
+    min-width: 100px;
   }
   
-  .sticky-col {
-    min-width: 140px;
-    max-width: 160px;
+  .user-name-main {
+    max-width: 90px;
   }
   
   .table-info-bar {
     flex-direction: column;
-    gap: 0.5rem;
     text-align: center;
   }
 }
