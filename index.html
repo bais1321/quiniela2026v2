@@ -2951,17 +2951,32 @@ function renderMessages(container, snap, mode){
 
 // ── Send message ─────────────────────────────────────────────────
 window.sendChatMsg = async function(){
-  // El admin en conversación usa chat-input, usuarios usan chat-input-user
-  const inputId = (isAdmin||isAdmin2) ? "chat-input" : "chat-input-user";
+  // Determinar qué input usar según el contexto actual
+  let inputId;
+  if(isAdmin||isAdmin2){
+    // Admin: si está en conversación privada (chat-convo-view visible) usa chat-input
+    // si está en grupo (chat-user-view visible) usa chat-input-user
+    const convoView = document.getElementById("chat-convo-view");
+    if(convoView && convoView.style.display === "flex"){
+      inputId = "chat-input";
+    } else {
+      inputId = "chat-input-user";
+    }
+  } else {
+    // Usuario normal siempre usa chat-input-user
+    inputId = "chat-input-user";
+  }
+  
   const input = document.getElementById(inputId);
   if(!input) return;
   const text = (input.value||"").trim();
   if(!text) return;
   input.value="";
 
+  const userSnap = await getDoc(doc(db,"users",currentUser.uid));
   const msgData = {
     uid: currentUser.uid,
-    displayName: (await getDoc(doc(db,"users",currentUser.uid))).data()?.displayName || currentUser.email,
+    displayName: userSnap.data()?.displayName || currentUser.email,
     isAdmin: isAdmin||isAdmin2,
     text,
     ts: serverTimestamp()
