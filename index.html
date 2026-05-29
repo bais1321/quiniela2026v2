@@ -5066,40 +5066,53 @@ main.full { max-width: 100%; padding-top: 6rem; padding-bottom: 5rem; }
   flex-shrink: 0;
 }
 /* ================================================================
-   GALERÍA DE FOTOS / RESULTADOS
+   GALERÍA DE FOTOS / RESULTADOS — 1 por columna (móvil-friendly)
    ================================================================ */
 .photos-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: .75rem;
+  grid-template-columns: 1fr;
+  gap: 1rem;
 }
 
 .photo-card {
   background: var(--bg3);
   border: 3px solid var(--border);
-  border-radius: 14px;
+  border-radius: 16px;
   overflow: hidden;
-  box-shadow: 3px 3px 0px rgba(0, 0, 0, 0.2);
+  box-shadow: 4px 4px 0px rgba(0, 0, 0, 0.25);
 }
 
 .photo-card img {
   width: 100%;
   height: auto;
-  max-height: 220px;
-  object-fit: cover;
+  max-height: 60vh;
+  object-fit: contain;
+  object-position: center;
   display: block;
-  border-radius: 11px 11px 0 0;
+  background: var(--bg2);
 }
 
 .photo-card p {
-  padding: .6rem .75rem;
-  font-size: .78rem;
+  padding: .75rem 1rem;
+  font-size: .85rem;
   color: var(--text2);
   margin: 0;
   line-height: 1.4;
+  text-align: center;
 }
 
-/* Mini fotos en admin */
+/* En pantallas grandes: 2 columnas */
+@media (min-width: 768px) {
+  .photos-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.25rem;
+  }
+  .photo-card img {
+    max-height: 50vh;
+  }
+}
+
+/* Mini fotos en admin (sin cambios) */
 .photos-mini {
   display: flex;
   flex-wrap: wrap;
@@ -5138,7 +5151,6 @@ main.full { max-width: 100%; padding-top: 6rem; padding-bottom: 5rem; }
   justify-content: center;
   padding: 0;
 }
-
 </style>
 
 <body>
